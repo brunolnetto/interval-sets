@@ -111,7 +111,7 @@ jobs:
     - name: Test example scripts
       run: |
         python examples/schedule_management.py
-        python examples/data_range_analysis.py
+        python examples/date_range_analysis.py
         python examples/temperature_monitoring.py
         python examples/advanced_geometry.py
         python examples/collision_detection.py
