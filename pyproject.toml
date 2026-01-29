@@ -1,6 +1,6 @@
 [project]
 name = "interval-sets"
-version = "0.1.1"
+version = "0.1.2"
 description = "A library to handle interval sets"
 readme = "README.md"
 requires-python = ">=3.11"

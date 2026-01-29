@@ -9,7 +9,6 @@ falls within a managed spatio-temporal 'Set'.
 import sys
 import os
 
-# Hack to run from examples/ directly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.intervals import Interval, Point, IntervalSet

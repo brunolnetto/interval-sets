@@ -5,6 +5,12 @@ This script demonstrates how the different geometric primitives compose
 to represent complex N-dimensional concepts.
 """
 
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 from src.intervals import Interval, Point, IntervalSet
 from src.multidimensional import Box, Set
 
