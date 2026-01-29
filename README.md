@@ -13,12 +13,13 @@ A Python library for performing **set operations** on intervals and points on th
 
 ## Features
 
-- 📏 **Continuous Intervals**: Immutable intervals with fully configurable open/closed boundaries `(a, b)`, `[a, b]`, `[a, b)`, `(a, b]`.
-- 📦 **Interval Sets**: The `Set` class represents a collection of disjoint intervals, automatically merging overlapping or adjacent intervals.
-- 🔢 **Set Operations**: Full support for Union (`|`), Intersection (`&`), Difference (`-`), and Symmetric Difference (`^`).
-- 🎯 **Points**: Support for discrete points (degenerate intervals) and operations mixing points and intervals.
+- 📏 **Continuous Intervals**: Configurable boundaries `(a, b)`, `[a, b]`, `[a, b)`, `(a, b]`.
+- 📦 **Interval Sets**: Disjoint collections with automatic merging.
+- 🔢 **Set Operations**: Exact Union (`|`), Intersection (`&`), Difference (`-`), and XOR (`^`).
+- 🛠️ **Analysis & Topology**: Tools for Convex Hull, Diameter, Boundedness, and Compactness.
+- 📐 **Morphology**: Minkowski Sum/Difference, Opening, Closing, and ε-dilation.
 - 🔒 **Type Safe**: Comprehensive type hints and runtime validation.
-- 🐍 **Pythonic**: Supports standard operators, hashing, iteration, and membership testing (`in`).
+- 🐍 **Pythonic**: Supports standard operators, hashing, and membership testing (`in`).
 
 ## Installation
 
@@ -75,16 +76,16 @@ inter = i1.intersection(i2)  # [5, 10]
 diff = i1.difference(i2)      # [0, 5)
 ```
 
-### Working with Sets (Disjoint Intervals)
+### Working with IntervalSets (1D Disjoint Intervals)
 
-The `Set` class handles collections of intervals and ensures they remain disjoint and normalized (merged).
+The `IntervalSet` class handles collections of 1D intervals and ensures they remain disjoint and normalized (merged).
 
 ```python
-from src.intervals import Set, Interval
+from src.intervals import IntervalSet, Interval
 
 # Create a set from a list of intervals
 # Overlapping [0, 5] and [3, 8] automatically merge to [0, 8]
-s = Set([
+s = IntervalSet([
     Interval(0, 5),
     Interval(3, 8),
     Interval(10, 15)
@@ -93,23 +94,65 @@ s = Set([
 print(s)  # {[0, 8], [10, 15]}
 
 # Set Arithmetic using Operators
-s1 = Set([Interval(0, 10)])
-s2 = Set([Interval(5, 15)])
+s1 = IntervalSet([Interval(0, 10)])
+s2 = IntervalSet([Interval(5, 15)])
 
 # Union (|)
 print(s1 | s2)  # [0, 15]
-
-# Intersection (&)
-print(s1 & s2)  # [5, 10]
-
-# Difference (-)
-print(s1 - s2)  # [0, 5)
-
-# Symmetric Difference (^)
-print(s1 ^ s2)  # {[0, 5), (10, 15]}
 ```
 
-## API Reference
+## Multi-Dimensional Support
+
+The library supports N-dimensional intervals (**Boxes**) and universal sets of boxes (**Sets**).
+
+### The `Box` Class (Hyperrectangle)
+A `Box` represents a Cartesian product of intervals: $B = I_1 \times I_2 \times ... \times I_n$.
+
+```python
+from src.multidimensional import Box, Set
+from src.intervals import Interval
+
+# Create a 2D Unit Square [0,1]x[0,1]
+square = Box([Interval(0, 1), Interval(0, 1)])
+print(square.volume()) # 1.0
+```
+
+### The `Set` Class (Universal N-D Set)
+A `Set` represents a collection of **disjoint** `Box`es. It is the N-dimensional equivalent of `IntervalSet` but supports all dimensions and automatic promotion.
+
+```python
+# L-Shape Construction
+v_bar = Box([Interval(0, 1), Interval(0, 2)])
+h_bar = Box([Interval(0, 2), Interval(0, 1)])
+
+# Union creates a Set
+l_shape = Set([v_bar]).union(h_bar)
+print(l_shape.volume()) # 3.0
+
+# Promotion: You can mix 1D Intervals into a Set!
+# They are automatically treated as 1D Boxes.
+s = Set([Interval(0, 5), Interval(10, 15)])
+print(s.volume()) # 10.0
+```
+
+- **Dimension Safety**: Enforces dimension matching for all operations.
+
+### Topological Analysis & Morphology
+
+```python
+# Topological checks
+square.is_compact() # True
+square.is_open()    # False
+
+# Morphology
+dilated = square.dilate_epsilon(0.1) # Expansion by 0.1
+eroded = dilated.erode(square) # Morphological erosion
+
+# Analysis
+print(l_shape.convex_hull()) # Smallest Box containing the shape
+print(l_shape.diameter())    # Maximum distance between points
+```
+
 
 ### `Interval`
 

@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.intervals import Set, Interval
+from src.intervals import IntervalSet, Interval
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
     
     # Simulate sensor data ranges (timestamps in seconds)
     # Some data is missing due to sensor failures
-    data_ranges = Set([
+    data_ranges = IntervalSet([
         Interval(0, 1000),       # First chunk
         Interval(1500, 2500),    # Second chunk (gap: 1000-1500)
         Interval(2800, 4000),    # Third chunk (gap: 2500-2800)
@@ -35,7 +35,7 @@ def main():
     print(f"\nExpected range: {expected_range} ({expected_range.length():.0f} seconds)")
     
     # Find missing data (gaps)
-    gaps = data_ranges.complement(Set([expected_range]))
+    gaps = data_ranges.complement(IntervalSet([expected_range]))
     
     print(f"\nMissing data (gaps):")
     if len(gaps) == 0:
@@ -75,7 +75,7 @@ def main():
     print("Adding new recovered data...")
     print("=" * 60)
     
-    recovered_data = Set([
+    recovered_data = IntervalSet([
         Interval(1200, 1600),  # Fills part of first gap
         Interval(2600, 2900),  # Fills second gap
     ])
@@ -93,7 +93,7 @@ def main():
     
     # Recalculate coverage
     new_covered = merged_data.measure()
-    new_gaps = merged_data.complement(Set([expected_range]))
+    new_gaps = merged_data.complement(IntervalSet([expected_range]))
     new_missing = sum(gap.length() for gap in new_gaps)
     
     print(f"\nUpdated Coverage:")

@@ -1,6 +1,6 @@
 
 import pytest
-from src.intervals import Interval, Set, Point
+from src.intervals import Interval, IntervalSet, Point
 from src.errors import InvalidIntervalError
 
 class TestMathematicalRigor:
@@ -39,8 +39,8 @@ class TestMathematicalRigor:
         
         diff = full.difference(remove)
         
-        # Expectation: Set with 2 intervals
-        assert isinstance(diff, Set)
+        # Expectation: IntervalSet with 2 intervals
+        assert isinstance(diff, IntervalSet)
         assert len(diff) == 2
         
         left = diff[0]
@@ -61,9 +61,9 @@ class TestMathematicalRigor:
     def test_empty_set_consistency(self):
         """
         Verify empty set representation consistency.
-        While Interval.empty() and Set() are different classes, they should behave rationally.
+        While Interval.empty() and IntervalSet() are different classes, they should behave rationally.
         """
-        s_empty = Set()
+        s_empty = IntervalSet()
         i_empty = Interval.empty()
         
         # Both should have 0 length/measure
@@ -71,11 +71,11 @@ class TestMathematicalRigor:
         assert i_empty.length() == 0
         
         # Union of empty with empty is empty
-        assert (s_empty | Set([i_empty])).is_empty()
+        assert (s_empty | IntervalSet([i_empty])).is_empty()
         
         # Intersection with empty is empty
         assert (Interval(0, 10) & i_empty).is_empty()
-        assert (Set([Interval(0, 10)]) & s_empty).is_empty()
+        assert (IntervalSet([Interval(0, 10)]) & s_empty).is_empty()
 
     def test_point_semantics(self):
         """
@@ -117,7 +117,7 @@ class TestMathematicalRigor:
         """Test normalization of A, B, C where A and C are joined by B."""
         # [0, 2], [2, 4], [4, 6] -> [0, 6]
         # Intervals touching at boundaries should merge
-        s = Set([
+        s = IntervalSet([
             Interval(0, 2),
             Interval(4, 6),
             Interval(2, 4)
@@ -134,14 +134,14 @@ class TestMathematicalRigor:
         [0, 2] touches [2, 4) at 2.
         [2, 4) touches [4, 6] at 4.
         """
-        s = Set([
+        s = IntervalSet([
             Interval(0, 2),
             Interval(4, 6)
         ])
         assert len(s) == 2
         
         gap_filler = Interval(2, 4, open_end=True) # [2, 4)
-        s_new = s | Set([gap_filler])
+        s_new = s | IntervalSet([gap_filler])
         
         if isinstance(s_new, Interval):
             assert s_new == Interval(0, 6)

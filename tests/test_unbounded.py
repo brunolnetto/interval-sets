@@ -1,6 +1,6 @@
 import pytest
 import math
-from src.intervals import Interval, Set
+from src.intervals import Interval, IntervalSet
 
 def test_unbounded_creation():
     inf = float('inf')
@@ -43,8 +43,8 @@ def test_infinite_arithmetic():
 
 def test_complement():
     # Complement of [0, 1] in explicit universe R
-    universe = Set([Interval(float('-inf'), float('inf'), open_start=True, open_end=True)])
-    s = Set.interval(0, 1) # [0, 1]
+    universe = IntervalSet([Interval(float('-inf'), float('inf'), open_start=True, open_end=True)])
+    s = IntervalSet.interval(0, 1) # [0, 1]
     comp = s.complement(universe)
     
     # Should be (-inf, 0) U (1, inf)

@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.intervals import Interval, Set
+from src.intervals import Interval, IntervalSet
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     acceptable_range = Interval(15, 28)     # Acceptable: 15-28°C
     warning_cold = Interval(10, 15)         # Warning: 10-15°C
     warning_hot = Interval(28, 35)          # Warning: 28-35°C
-    critical_range = Set([
+    critical_range = IntervalSet([
         Interval(-10, 10),                  # Critical cold
         Interval(35, 50)                    # Critical hot
     ])
@@ -111,7 +111,7 @@ def main():
     needs_adjustment = acceptable_range - optimal_range
     
     print(f"\nRanges needing adjustment to reach optimal:")
-    if isinstance(needs_adjustment, Set):
+    if isinstance(needs_adjustment, IntervalSet):
         for i, range_adj in enumerate(needs_adjustment, 1):
             if range_adj.end <= optimal_range.start:
                 print(f"  {i}. {range_adj}°C (too cold - increase heating)")

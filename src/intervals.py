@@ -155,6 +155,24 @@ class Interval:
         if self.is_empty():
             return 0.0
         return self._end - self._start
+
+    def is_bounded(self) -> bool:
+        """Check if the interval is bounded (neither end is infinite)."""
+        if self.is_empty():
+            return True
+        return not math.isinf(self._start) and not math.isinf(self._end)
+
+    def is_open(self) -> bool:
+        """Check if the interval is open."""
+        return not self.is_empty() and self == self.interior()
+
+    def is_closed(self) -> bool:
+        """Check if the interval is closed."""
+        return not self.is_empty() and self == self.closure()
+
+    def is_compact(self) -> bool:
+        """Check if the interval is compact (closed and bounded)."""
+        return self.is_closed() and self.is_bounded()
     
     def contains(self, value: Union[float, 'Interval']) -> bool:
         """
@@ -375,15 +393,15 @@ class Interval:
         """Allen's 'preceded by' (bi)."""
         return other.precedes(self)
     
-    def intersection(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def intersection(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """
         Compute the intersection of this interval with another.
         
         Returns:
             - An Interval if intersection is a single interval or point
-            - A Set if intersection is empty
+            - A IntervalSet if intersection is empty
         """
-        # Import Set from below in this file
+        # Import IntervalSet from below in this file
         
         if not self.overlaps(other):
             return _create_empty_set()  # Empty set
@@ -414,18 +432,18 @@ class Interval:
         
         return Interval(start, end, open_start=open_start, open_end=open_end)
     
-    def union(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def union(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """
         Compute the union of this interval with another.
         
         Returns:  
             - An Interval if intervals are adjacent/overlapping (can be merged)
-            - A Set containing both intervals if disjoint
+            - A IntervalSet containing both intervals if disjoint
         """
-        # Import Set from below in this file
+        # Import IntervalSet from below in this file
         
         if not (self.overlaps(other) or self.is_adjacent(other)):
-            # Disjoint intervals - return Set containing both
+            # Disjoint intervals - return IntervalSet containing both
             return _create_set([self, other])
         
         # Merge intervals
@@ -448,21 +466,21 @@ class Interval:
         
         return Interval(start, end, open_start=open_start, open_end=open_end)
     
-    def difference(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def difference(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """
         Compute the difference of this interval minus another.
         
         Returns:
             - An Interval if the result is a single interval
-            - A Set if the result is empty, multiple intervals, or a single point
+            - A IntervalSet if the result is empty, multiple intervals, or a single point
         """
-        # Import Set from below in this file
+        # Import IntervalSet from below in this file
         
         if not self.overlaps(other):
             return self  # Return the original interval
         
         intersection = self.intersection(other)
-        if isinstance(intersection, Set) and intersection.is_empty():  # pragma: no cover
+        if isinstance(intersection, IntervalSet) and intersection.is_empty():  # pragma: no cover
             return self  # No overlap, return original (defensive)
         
         # Handle the case where intersection is an interval
@@ -483,9 +501,9 @@ class Interval:
                         open_start=self._open_start, 
                         open_end=not int_open_start)
             )
-        elif self._start == int_start and self._open_start and not int_open_start:  # pragma: no cover
-            # Edge case: self starts open, intersection starts closed (unreachable)
-            pass  # No left part
+        elif self._start == int_start and not self._open_start and int_open_start:
+            # Case like [0, 2] - (0, 2): The point 0 is in the difference
+            result_intervals.append(Point(self._start))
         
         # Right part: (intersection.end, self.end]
         if int_end < self._end:
@@ -494,9 +512,9 @@ class Interval:
                         open_start=not int_open_end,
                         open_end=self._open_end)
             )
-        elif int_end == self._end and not int_open_end and self._open_end:  # pragma: no cover
-            # Edge case: intersection ends closed, self ends open (unreachable)
-            pass  # No right part
+        elif int_end == self._end and int_open_end and not self._open_end:
+            # Case like [0, 2] - (0, 2): The point 2 is in the difference
+            result_intervals.append(Point(self._end))
         
         # Return appropriate type based on result
         if len(result_intervals) == 0:
@@ -508,7 +526,9 @@ class Interval:
     
     # Comparison operators
     def __eq__(self, other) -> bool:
-        """Check equality with another interval."""
+        """Check equality with another interval or set."""
+        if hasattr(other, 'is_interval') and other.is_interval():
+            return other == self
         if not isinstance(other, Interval):
             return False
         return (self._start == other._start and 
@@ -546,6 +566,55 @@ class Interval:
         """Support 'in' operator."""
         return self.contains(item)
     
+    def interior(self) -> 'Interval':
+        """
+        Return the interior of the interval.
+        The interior of an interval is the set of its points except the boundary ones.
+        Returns a new open interval.
+        """
+        if self.is_empty():
+            return self
+        return Interval(self.start, self.end, open_start=True, open_end=True)
+
+    def closure(self) -> 'Interval':
+        """
+        Return the closure of the interval.
+        The closure of an interval is the smallest closed interval containing it.
+        Returns a new closed interval.
+        """
+        if self.is_empty():
+            return self
+        return Interval(self.start, self.end, open_start=False, open_end=False)
+
+    def boundary(self) -> 'IntervalSet':
+        """
+        Return the topological boundary of the interval.
+        For a non-empty bounded interval, the boundary is the set of its endpoints.
+        """
+        if self.is_empty():
+            return _create_empty_set()
+        
+        # Collect finite endpoints
+        points = []
+        if not math.isinf(self.start):
+            points.append(self.start)
+        # Avoid duplicating point for degenerate intervals
+        if not math.isinf(self.end) and self.end != self.start:
+            points.append(self.end)
+            
+        return _create_set(points)
+
+
+    def convex_hull(self) -> 'Interval':
+        """Return the smallest convex interval containing this interval."""
+        return self
+
+    def diameter(self) -> float:
+        """Return the maximum distance between any two points in the interval."""
+        if self.is_empty():
+            return 0.0
+        return self.end - self.start
+    
     def __repr__(self) -> str:
         """String representation using mathematical notation."""
         if self.is_empty():
@@ -559,26 +628,112 @@ class Interval:
         """String representation."""
         return self.__repr__()
     
-    # Set-like operators for intervals
-    def __or__(self, other: 'Interval') -> Union['Interval', 'Set']:
+    # IntervalSet-like operators for intervals
+    def minkowski_sum(self, other: Union['Interval', float]) -> 'Interval':
+        """
+        Compute the Minkowski sum of this interval and another (dilation).
+        A + B = {x + y : x in A, y in B}
+        
+        If other is a scalar, it performs a translation (shifting).
+        """
+        if self.is_empty():
+            return self
+            
+        if isinstance(other, (int, float)):
+            if math.isinf(other):
+                # Shifting by infinity results in an empty set in our topology
+                # because (inf, inf) and similar are normalized to empty.
+                return Interval.empty()
+            return Interval(self.start + other, self.end + other, 
+                           open_start=self.open_start, open_end=self.open_end)
+        
+        if not isinstance(other, Interval):
+            raise TypeError(f"Minkowski sum requires Interval, got {type(other)}")
+            
+        if other.is_empty():
+            return other
+            
+        return Interval(
+            self.start + other.start,
+            self.end + other.end,
+            open_start=self.open_start or other.open_start,
+            open_end=self.open_end or other.open_end
+        )
+
+    def __add__(self, other: Union['Interval', float]) -> 'Interval':
+        """Minkowski sum operator +"""
+        return self.minkowski_sum(other)
+
+    def __radd__(self, other: float) -> 'Interval':
+        """Reverse add for scalar + Interval"""
+        return self.minkowski_sum(other)
+
+    def minkowski_difference(self, other: 'Interval') -> 'Interval':
+        """
+        Compute the Minkowski difference of this interval and another (erosion).
+        A - B = {x : {x} + B is a subset of A}
+        
+        For intervals [a, b] and [c, d], this is [a-c, b-d] if boundaries allow.
+        """
+        if self.is_empty():
+            return self
+            
+        if not isinstance(other, Interval):
+            raise TypeError(f"Minkowski difference requires Interval, got {type(other)}")
+            
+        if other.is_empty():
+            # Any x + empty is empty, and empty is subset of any A.
+            # So all x belong? No, Minkowski arithmetic with empty sets usually results in empty
+            # unless we follow specific topological rules.
+            # According to most definitions, A - empty is empty or universal?
+            # Actually, erosion by empty set is usually the universal set?
+            # Let's check literature. Usually it's defined as empty.
+            return Interval.empty()
+            
+        start = self.start - other.start
+        end = self.end - other.end
+        
+        if start > end:
+            return Interval.empty()
+            
+        # Boundary logic:
+        # Result is open ONLY IF A is open AND B is closed.
+        open_start = self.open_start and not other.open_start
+        open_end = self.open_end and not other.open_end
+        
+        # Check for degenerate points that might become empty due to boundary types
+        if start == end and (open_start or open_end):
+            return Interval.empty()
+            
+        return Interval(start, end, open_start=open_start, open_end=open_end)
+
+    def dilate(self, other: Union['Interval', float]) -> 'Interval':
+        """Alias for minkowski_sum"""
+        return self.minkowski_sum(other)
+        
+    def erode(self, other: 'Interval') -> 'Interval':
+        """Alias for minkowski_difference"""
+        return self.minkowski_difference(other)
+
+    def __or__(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """Union operator | for intervals"""
         return self.union(other)
     
-    def __and__(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def __and__(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """Intersection operator & for intervals"""
         return self.intersection(other)
     
-    def __sub__(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def __sub__(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """Difference operator - for intervals"""
         return self.difference(other)
     
-    def __xor__(self, other: 'Interval') -> Union['Interval', 'Set']:
+    def __xor__(self, other: 'Interval') -> Union['Interval', 'IntervalSet']:
         """Symmetric difference operator ^ for intervals"""
         left_diff = self - other
         right_diff = other - self
         
         # Convert single intervals to sets for union
-        # Set class is defined below in this same file
+        # IntervalSet class is defined below in this same file
         if isinstance(left_diff, Interval):
             left_diff = _create_set([left_diff])
         if isinstance(right_diff, Interval):
@@ -615,23 +770,23 @@ class Point(Interval):
         return f"Point({self._start})"
 
 
-class Set:
+class IntervalSet:
     """
-    Represents any set on the real number line.
+    Represents a set of disjoint intervals on the real number line.
     
-    A Set can contain intervals, isolated points, or combinations of both.
+    A IntervalSet can contain intervals, isolated points, or combinations of both.
     Internally, all elements are stored as non-overlapping intervals, with 
     isolated points represented as degenerate intervals [p, p].
     
     Examples:
-        >>> Set([Interval(0, 5), Interval(10, 15)])  # Two disjoint intervals
-        >>> Set.point(7)                             # Single isolated point
-        >>> Set.points([1, 3, 5])                    # Multiple isolated points  
-        >>> Set([Interval(0, 5), Set.point(7)])      # Mixed interval and point
-        >>> Set()                                    # Empty set
+        >>> IntervalSet([Interval(0, 5), Interval(10, 15)])  # Two disjoint intervals
+        >>> IntervalSet.point(7)                             # Single isolated point
+        >>> IntervalSet.points([1, 3, 5])                    # Multiple isolated points  
+        >>> IntervalSet([Interval(0, 5), IntervalSet.point(7)])      # Mixed interval and point
+        >>> IntervalSet()                                    # Empty set
     """
     
-    def __init__(self, elements: Optional[List[Union[Interval, float, 'Set']]] = None):
+    def __init__(self, elements: Optional[List[Union[Interval, float, 'IntervalSet']]] = None):
         """
         Create a new set from a list of elements.
         
@@ -663,7 +818,7 @@ class Set:
         return result
     
     @classmethod
-    def point(cls, value: float) -> 'Set':
+    def point(cls, value: float) -> 'IntervalSet':
         """
         Create a set containing a single isolated point.
         
@@ -671,12 +826,12 @@ class Set:
             value: The point value
             
         Returns:
-            A Set containing just the point [value, value]
+            A IntervalSet containing just the point [value, value]
         """
         return cls([Interval.point(value)])
     
     @classmethod
-    def points(cls, values: List[float]) -> 'Set':
+    def points(cls, values: List[float]) -> 'IntervalSet':
         """
         Create a set containing multiple isolated points.
         
@@ -684,12 +839,12 @@ class Set:
             values: List of point values
             
         Returns:
-            A Set containing the points
+            A IntervalSet containing the points
         """
         return cls([Interval.point(v) for v in values])
     
     @classmethod
-    def interval(cls, start: float, end: float, *, open_start: bool = False, open_end: bool = False) -> 'Set':
+    def interval(cls, start: float, end: float, *, open_start: bool = False, open_end: bool = False) -> 'IntervalSet':
         """
         Create a set containing a single interval.
         
@@ -700,11 +855,11 @@ class Set:
             open_end: Whether end is open
             
         Returns:
-            A Set containing the interval
+            A IntervalSet containing the interval
         """
         return cls([Interval(start, end, open_start=open_start, open_end=open_end)])
     
-    def _add_element(self, element: Union[Interval, float, 'Set']) -> None:
+    def _add_element(self, element: Union[Interval, float, 'IntervalSet']) -> None:
         """Add an element to this set (before normalization)."""
         if isinstance(element, (int, float)):
             self._intervals.append(Point(element))
@@ -715,10 +870,10 @@ class Set:
                     self._intervals.append(Point(element.start))
                 else:
                     self._intervals.append(element)
-        elif isinstance(element, Set):
+        elif isinstance(element, IntervalSet):
             self._intervals.extend(element._intervals)
         else:
-            raise TypeError(f"Cannot add element of type {type(element)} to Set")
+            raise TypeError(f"Cannot add element of type {type(element)} to IntervalSet")
     
     def _normalize(self) -> None:
         """Sort intervals and merge overlapping/adjacent ones."""
@@ -763,7 +918,7 @@ class Set:
         """Check if this set is exactly one interval."""
         return len(self._intervals) == 1
     
-    def contains(self, value: Union[float, Interval, 'Set']) -> bool:
+    def contains(self, value: Union[float, Interval, 'IntervalSet']) -> bool:
         """
         Check if this set contains a value, interval, or another set.
         
@@ -779,14 +934,14 @@ class Set:
             if value.is_empty():
                 return True
             return any(interval.contains(value) for interval in self._intervals)
-        elif isinstance(value, Set):
+        elif isinstance(value, IntervalSet):
             if value.is_empty():
                 return True
             return all(self.contains(interval) for interval in value._intervals)
         else:
             return False
     
-    def overlaps(self, other: 'Set') -> bool:
+    def overlaps(self, other: 'IntervalSet') -> bool:
         """Check if this set overlaps with another set."""
         if self.is_empty() or other.is_empty():
             return False
@@ -797,19 +952,19 @@ class Set:
                     return True
         return False
     
-    def intersection(self, other: 'Set') -> Union[Interval, 'Set']:
+    def intersection(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """
         Compute the intersection of this set with another.
         
         Args:
-            other: Another Set
+            other: Another IntervalSet
             
         Returns:
             - An Interval if intersection is a single interval
-            - A Set if intersection is empty or multiple intervals
+            - A IntervalSet if intersection is empty or multiple intervals
         """
         if self.is_empty() or other.is_empty():
-            return Set()
+            return IntervalSet()
         
         result_intervals = []
         
@@ -818,45 +973,45 @@ class Set:
                 intersection = our_interval.intersection(their_interval)
                 if isinstance(intersection, Interval):
                     result_intervals.append(intersection)
-                elif isinstance(intersection, Set) and not intersection.is_empty():  # pragma: no cover
-                    result_intervals.extend(intersection._intervals)  # Unreachable: Interval.intersection never returns non-empty Set
+                elif isinstance(intersection, IntervalSet) and not intersection.is_empty():  # pragma: no cover
+                    result_intervals.extend(intersection._intervals)  # Unreachable: Interval.intersection never returns non-empty IntervalSet
         
         # Return appropriate type based on result
         filtered_intervals = [interval for interval in result_intervals if not interval.is_empty()]
         if len(filtered_intervals) == 0:
-            return Set()  # Empty set
+            return IntervalSet()  # Empty set
         elif len(filtered_intervals) == 1:
             return filtered_intervals[0]  # Single interval
         else:
-            return Set(filtered_intervals)  # Multiple intervals
+            return IntervalSet(filtered_intervals)  # Multiple intervals
     
-    def union(self, other: 'Set') -> Union[Interval, 'Set']:
+    def union(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """
         Compute the union of this set with another.
         
         Args:
-            other: Another Set
+            other: Another IntervalSet
             
         Returns:
             - An Interval if union results in a single interval
-            - A Set if union is empty or results in multiple intervals
+            - A IntervalSet if union is empty or results in multiple intervals
         """
         if self.is_empty():
             if other.is_empty():
-                return Set()
+                return IntervalSet()
             elif len(other._intervals) == 1:
                 return other._intervals[0]  # Single interval
             else:
-                return Set(other._intervals)
+                return IntervalSet(other._intervals)
         if other.is_empty():
             if len(self._intervals) == 1:
                 return self._intervals[0]  # Single interval
             else:
-                return Set(self._intervals)
+                return IntervalSet(self._intervals)
         
         # Combine all intervals and let normalization handle merging
         all_intervals = self._intervals + other._intervals
-        result = Set(all_intervals)
+        result = IntervalSet(all_intervals)
         
         # Return appropriate type
         if len(result._intervals) == 1:
@@ -864,24 +1019,24 @@ class Set:
         else:
             return result  # Multiple intervals or empty
     
-    def difference(self, other: 'Set') -> Union[Interval, 'Set']:
+    def difference(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """
         Compute the difference of this set minus another.
         
         Args:
-            other: Set to subtract
+            other: IntervalSet to subtract
             
         Returns:
             - An Interval if the result is a single interval
-            - A Set if the result is empty, multiple intervals, or contains points
+            - A IntervalSet if the result is empty, multiple intervals, or contains points
         """
         if self.is_empty():
-            return Set()
+            return IntervalSet()
         if other.is_empty():
             if len(self._intervals) == 1:
                 return self._intervals[0]  # Return single interval directly
             else:
-                return Set(self._intervals)
+                return IntervalSet(self._intervals)
         
         result_intervals = list(self._intervals)
         
@@ -898,13 +1053,13 @@ class Set:
         
         # Return appropriate type based on result
         if len(result_intervals) == 0:
-            return Set()  # Empty set
+            return IntervalSet()  # Empty set
         elif len(result_intervals) == 1:
             return result_intervals[0]  # Single interval
         else:
-            return Set(result_intervals)  # Multiple intervals
+            return IntervalSet(result_intervals)  # Multiple intervals
     
-    def complement(self, universe: Optional['Set'] = None) -> 'Set':
+    def complement(self, universe: Optional['IntervalSet'] = None) -> 'IntervalSet':
         """
         Compute the complement of this set.
         
@@ -922,34 +1077,34 @@ class Set:
         
         return universe.difference(self)
     
-    # Set operators
-    def __or__(self, other: 'Set') -> Union[Interval, 'Set']:
+    # IntervalSet operators
+    def __or__(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """Union operator |"""
         return self.union(other)
     
-    def __and__(self, other: 'Set') -> Union[Interval, 'Set']:
+    def __and__(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """Intersection operator &"""
         return self.intersection(other)
     
-    def __sub__(self, other: 'Set') -> Union[Interval, 'Set']:
+    def __sub__(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """Difference operator -"""
         return self.difference(other)
     
-    def __xor__(self, other: 'Set') -> Union[Interval, 'Set']:
+    def __xor__(self, other: 'IntervalSet') -> Union[Interval, 'IntervalSet']:
         """Symmetric difference operator ^"""
         left_diff = self - other
         right_diff = other - self
         
         # Handle different return types from difference operations
         if isinstance(left_diff, Interval):
-            left_diff = Set([left_diff])
+            left_diff = IntervalSet([left_diff])
         if isinstance(right_diff, Interval):
-            right_diff = Set([right_diff])
+            right_diff = IntervalSet([right_diff])
             
         return left_diff | right_diff
     
     # In-place operators
-    def __ior__(self, other: 'Set') -> 'Set':
+    def __ior__(self, other: 'IntervalSet') -> 'IntervalSet':
         """In-place union |="""
         result = self.union(other)
         if isinstance(result, Interval):
@@ -958,7 +1113,7 @@ class Set:
             self._intervals = result._intervals
         return self
     
-    def __iand__(self, other: 'Set') -> 'Set':
+    def __iand__(self, other: 'IntervalSet') -> 'IntervalSet':
         """In-place intersection &="""
         result = self.intersection(other)
         if isinstance(result, Interval):
@@ -967,7 +1122,7 @@ class Set:
             self._intervals = result._intervals
         return self
     
-    def __isub__(self, other: 'Set') -> 'Set':
+    def __isub__(self, other: 'IntervalSet') -> 'IntervalSet':
         """In-place difference -="""
         result = self.difference(other)
         if isinstance(result, Interval):
@@ -976,7 +1131,7 @@ class Set:
             self._intervals = result._intervals
         return self
     
-    def __ixor__(self, other: 'Set') -> 'Set':
+    def __ixor__(self, other: 'IntervalSet') -> 'IntervalSet':
         """In-place symmetric difference ^="""
         result = self ^ other
         if isinstance(result, Interval):
@@ -987,24 +1142,26 @@ class Set:
     
     # Comparison operators
     def __eq__(self, other) -> bool:
-        """Check equality with another set."""
-        if not isinstance(other, Set):
+        """Check equality with another set or interval."""
+        if isinstance(other, Interval):
+            return self.is_interval() and self._intervals[0] == other
+        if not isinstance(other, IntervalSet):
             return False
         return self._intervals == other._intervals
     
-    def __le__(self, other: 'Set') -> bool:
+    def __le__(self, other: 'IntervalSet') -> bool:
         """Check if this set is a subset of another (⊆)."""
         return other.contains(self)
     
-    def __lt__(self, other: 'Set') -> bool:
+    def __lt__(self, other: 'IntervalSet') -> bool:
         """Check if this set is a proper subset of another (⊂)."""
         return self <= other and self != other
     
-    def __ge__(self, other: 'Set') -> bool:
+    def __ge__(self, other: 'IntervalSet') -> bool:
         """Check if this set is a superset of another (⊇)."""
         return self.contains(other)
     
-    def __gt__(self, other: 'Set') -> bool:
+    def __gt__(self, other: 'IntervalSet') -> bool:
         """Check if this set is a proper superset of another (⊃)."""
         return self >= other and self != other
     
@@ -1068,6 +1225,12 @@ class Set:
             Sum of lengths of all intervals
         """
         return sum(interval.length() for interval in self._intervals)
+
+    def volume(self) -> float:
+        """
+        Alias for measure() to maintain consistency with multi-dimensional Set.
+        """
+        return self.measure()
     
     def infimum(self) -> Optional[float]:
         """Get the infimum (greatest lower bound) of this set."""
@@ -1080,6 +1243,24 @@ class Set:
         if self.is_empty():
             return None
         return max(interval.end for interval in self._intervals)
+
+    def convex_hull(self) -> Interval:
+        """Return the smallest convex interval containing this set."""
+        if self.is_empty():
+            return Interval.empty()
+        # Since intervals are sorted and disjoint
+        inf_int = self._intervals[0]
+        sup_int = self._intervals[-1]
+        return Interval(inf_int.start, sup_int.end, 
+                        open_start=inf_int.open_start, 
+                        open_end=sup_int.open_end)
+
+    def diameter(self) -> float:
+        """Return the maximum distance between any two points in the set."""
+        if self.is_empty():
+            return 0.0
+        # Since intervals are sorted, sup is in the last, inf is in the first
+        return self._intervals[-1].end - self._intervals[0].start
     
     def is_bounded(self) -> bool:
         """Check if this set is bounded."""
@@ -1093,10 +1274,22 @@ class Set:
         """Check if this set is connected (single interval)."""
         return len(self._intervals) <= 1
     
-    def connected_components(self) -> List['Set']:
+    def connected_components(self) -> List['IntervalSet']:
         """Get the connected components of this set."""
-        return [Set([interval]) for interval in self._intervals]
-    def distance(self, other: 'Set') -> float:
+        return [IntervalSet([interval]) for interval in self._intervals]
+
+    def is_open(self) -> bool:
+        """Check if the set is open."""
+        return not self.is_empty() and self == self.interior()
+
+    def is_closed(self) -> bool:
+        """Check if the set is closed."""
+        return not self.is_empty() and self == self.closure()
+
+    def is_compact(self) -> bool:
+        """Check if the set is compact (closed and bounded)."""
+        return self.is_closed() and self.is_bounded()
+    def distance(self, other: 'IntervalSet') -> float:
         """
         Compute the minimum distance between two sets (gap).
         """
@@ -1115,7 +1308,153 @@ class Set:
                     min_dist = d
         return min_dist
 
-    def hausdorff_distance(self, other: 'Set') -> float:
+    def interior(self) -> 'IntervalSet':
+        """
+        Return the interior of the set.
+        The interior of a set is the union of the interiors of its component intervals.
+        """
+        if self.is_empty():
+            return self
+        # Create a new Set from the interiors of component intervals.
+        # Normalization will merge them if necessary (though interiors of disjoint intervals should be disjoint).
+        return IntervalSet([interval.interior() for interval in self._intervals])
+
+    def closure(self) -> 'IntervalSet':
+        """
+        Return the closure of the set.
+        The closure of a set is the union of the closures of its component intervals.
+        """
+        if self.is_empty():
+            return self
+        return IntervalSet([interval.closure() for interval in self._intervals])
+
+    def boundary(self) -> 'IntervalSet':
+        """
+        Return the topological boundary of the set.
+        Defined as: boundary(A) = closure(A) - interior(A)
+        """
+        if self.is_empty():
+            return self
+            
+        # Use subtraction to find the boundary points
+        # For [1, 2] | [3, 4], interior is (1, 2) | (3, 4)
+        # Closure is [1, 2] | [3, 4]
+        # Difference is {1, 2, 3, 4}
+        diff = self.closure() - self.interior()
+        if isinstance(diff, Interval):
+            return IntervalSet([diff])
+        return diff
+
+    def minkowski_sum(self, other: Union['IntervalSet', Interval, float]) -> 'IntervalSet':
+        """
+        Compute the Minkowski sum of this set and another (dilation).
+        A + B = {x + y : x in A, y in B}
+        """
+        if self.is_empty():
+            return self
+            
+        if isinstance(other, (int, float)):
+            # Shifting all intervals
+            return IntervalSet([interval.minkowski_sum(other) for interval in self._intervals])
+            
+        if isinstance(other, Interval):
+            if other.is_empty():
+                return IntervalSet()
+            return IntervalSet([interval.minkowski_sum(other) for interval in self._intervals])
+            
+        if not isinstance(other, IntervalSet):
+            raise TypeError(f"Minkowski sum requires IntervalSet, Interval or scalar, got {type(other)}")
+            
+        if other.is_empty():
+            return other
+            
+        # Union of pairwise sums
+        results = []
+        for i_a in self._intervals:
+            for i_b in other._intervals:
+                results.append(i_a.minkowski_sum(i_b))
+        return IntervalSet(results)
+
+    def minkowski_difference(self, other: Union['IntervalSet', Interval]) -> 'IntervalSet':
+        r"""
+        Compute the Minkowski difference (erosion).
+        A - B = {x : {x} + B is a subset of A}
+        
+        Formula: A - (B1 U B2) = (A - B1) \cap (A - B2)
+        """
+        if self.is_empty():
+            return self
+            
+        if isinstance(other, Interval):
+            if other.is_empty():
+                return IntervalSet()
+            # For connected B, A - B is union of components each eroded
+            # Because x + B must be inside exactly one component
+            results = []
+            for i_a in self._intervals:
+                res = i_a.minkowski_difference(other)
+                if not res.is_empty():
+                    results.append(res)
+            return IntervalSet(results)
+            
+        if not isinstance(other, IntervalSet):
+            raise TypeError(f"Minkowski difference requires IntervalSet or Interval, got {type(other)}")
+            
+        if other.is_empty():
+            return IntervalSet()
+            
+        # Intersection of erosion by each component of B
+        res = self
+        for i_b in other._intervals:
+            res_b = self.minkowski_difference(i_b)
+            # Intersection with current result
+            # Note: IntervalSet & IntervalSet returns IntervalSet
+            res = res & res_b
+            if res.is_empty():
+                break
+        return res
+
+    def dilate(self, other: Union['IntervalSet', Interval, float]) -> 'IntervalSet':
+        """Alias for minkowski_sum"""
+        return self.minkowski_sum(other)
+        
+    def erode(self, other: Union['IntervalSet', Interval]) -> 'IntervalSet':
+        """Alias for minkowski_difference"""
+        return self.minkowski_difference(other)
+
+    def __add__(self, other: Union['IntervalSet', Interval, float]) -> 'IntervalSet':
+        """Minkowski sum +"""
+        return self.minkowski_sum(other)
+        
+    def __radd__(self, other: float) -> 'IntervalSet':
+        return self.minkowski_sum(other)
+
+    def opening(self, other: Union['IntervalSet', Interval]) -> 'IntervalSet':
+        """
+        Compute the morphological opening of this set by another.
+        Opening(A, B) = dilation(erosion(A, B), B)
+        """
+        return self.erode(other).dilate(other)
+
+    def closing(self, other: Union['IntervalSet', Interval]) -> 'IntervalSet':
+        """
+        Compute the morphological closing of this set by another.
+        Closing(A, B) = erosion(dilation(A, B), B)
+        """
+        return self.dilate(other).erode(other)
+
+    def dilate_epsilon(self, epsilon: float) -> 'IntervalSet':
+        """
+        Shortcut for dilation by a centered interval [-epsilon, epsilon].
+        This expands the set in both directions.
+        """
+        if epsilon == 0:
+            return self
+        ebit = Interval.closed(-epsilon, epsilon)
+        return self.dilate(ebit)
+
+
+    def hausdorff_distance(self, other: 'IntervalSet') -> float:
         """
         Compute the Hausdorff distance between two sets.
         d_H(A, B) = max( sup_{x in A} d(x, B), sup_{y in B} d(y, A) )
@@ -1123,7 +1462,7 @@ class Set:
         if self.is_empty() or other.is_empty():
             return float('inf')
             
-        def directed_hausdorff(source: 'Set', target: 'Set') -> float:
+        def directed_hausdorff(source: 'IntervalSet', target: 'IntervalSet') -> float:
             max_dist = 0.0
             for interval in source._intervals:
                 # Check start endpoint
@@ -1174,12 +1513,12 @@ class Set:
 
 # Helper functions to avoid circular imports
 def _create_empty_set():
-    """Create an empty Set."""
-    return Set()
+    """Create an empty IntervalSet."""
+    return IntervalSet()
 
 def _create_set(elements):
-    """Create a Set with given elements."""
-    return Set(elements)
+    """Create a IntervalSet with given elements."""
+    return IntervalSet(elements)
 
 
 

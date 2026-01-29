@@ -1,7 +1,7 @@
 """Pytest configuration and shared fixtures for interval arithmetic tests."""
 
 import pytest
-from src.intervals import Interval, Set
+from src.intervals import Interval, IntervalSet
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def work_day():
 @pytest.fixture  
 def meetings():
     """A collection of meeting times."""
-    return Set([
+    return IntervalSet([
         Interval(9, 10),      # 9-10 AM
         Interval(11, 12.5),   # 11 AM-12:30 PM
         Interval(14, 16)      # 2-4 PM
@@ -23,7 +23,7 @@ def meetings():
 @pytest.fixture
 def data_ranges():
     """Data coverage ranges with gaps."""
-    return Set([
+    return IntervalSet([
         Interval(0, 1000),
         Interval(1500, 2500),
         Interval(2800, 4000)

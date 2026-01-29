@@ -9,7 +9,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.intervals import Interval, Set
+from src.intervals import Interval, IntervalSet
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
     print(f"\nWork day: {work_day}")
     
     # Define busy times (meetings)
-    meetings = Set([
+    meetings = IntervalSet([
         Interval(9, 10),      # Team standup 9-10 AM
         Interval(11, 12.5),   # Client meeting 11 AM-12:30 PM
         Interval(14, 16)      # Project review 2-4 PM
@@ -33,7 +33,7 @@ def main():
         print(f"  {i}. {meeting}")
     
     # Find available time slots
-    available = meetings.complement(Set([work_day]))
+    available = meetings.complement(IntervalSet([work_day]))
     
     print("\nAvailable time slots:")
     for i, slot in enumerate(available, 1):
@@ -73,7 +73,7 @@ def main():
     print(f"\nTrying to schedule new meeting: {new_meeting}")
     
     # Check for conflicts
-    conflicts = meetings & Set([new_meeting])
+    conflicts = meetings & IntervalSet([new_meeting])
     
     if not conflicts.is_empty():
         print(f"  ✗ Conflict detected! Overlaps with existing meeting(s)")
@@ -81,7 +81,7 @@ def main():
         print(f"  ✓ No conflicts! Meeting can be scheduled")
         
         # Add the meeting
-        updated_schedule = meetings | Set([new_meeting])
+        updated_schedule = meetings | IntervalSet([new_meeting])
         print(f"\nUpdated schedule:")
         for i, meeting in enumerate(updated_schedule, 1):
             print(f"  {i}. {meeting}")
@@ -89,7 +89,7 @@ def main():
     # Try to schedule a conflicting meeting
     print(f"\nTrying to schedule conflicting meeting: [9.5, 10.5]")
     conflicting_meeting = Interval(9.5, 10.5)
-    conflicts2 = meetings & Set([conflicting_meeting])
+    conflicts2 = meetings & IntervalSet([conflicting_meeting])
     
     if not conflicts2.is_empty():
         print(f"  ✗ Conflict detected! Overlaps with: {conflicts2}")

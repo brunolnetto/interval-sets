@@ -3,7 +3,7 @@ Integration tests for complex workflows and real-world scenarios.
 """
 
 import pytest
-from src.intervals import Interval, Set
+from src.intervals import Interval, IntervalSet
 
 
 class TestScheduleManagementWorkflow:
@@ -12,7 +12,7 @@ class TestScheduleManagementWorkflow:
     def test_find_available_time_slots(self, work_day, meetings):
         """Test finding available time slots in a work day"""
         # Find available time
-        available = meetings.complement(Set([work_day]))
+        available = meetings.complement(IntervalSet([work_day]))
         
         # Should have 3 free slots
         assert len(available) == 3
@@ -27,14 +27,14 @@ class TestScheduleManagementWorkflow:
         """Test detecting scheduling conflicts"""
         # Try to schedule a meeting that conflicts
         new_meeting = Interval(9.5, 10.5)
-        conflicts = meetings & Set([new_meeting])
+        conflicts = meetings & IntervalSet([new_meeting])
         
         # Should find a conflict with the 9-10 AM meeting
         assert not conflicts.is_empty()
 
     def test_meeting_consolidation(self):
         """Test automatic consolidation of adjacent meetings"""
-        meetings = Set([
+        meetings = IntervalSet([
             Interval(9, 10),
             Interval(10, 11),
             Interval(11, 12),
@@ -54,7 +54,7 @@ class TestDataCoverageAnalysis:
         expected = Interval(0, 4000)
         
         # Find gaps in data coverage
-        gaps = data_ranges.complement(Set([expected]))
+        gaps = data_ranges.complement(IntervalSet([expected]))
         
         # Should have 2 gaps
         assert len(gaps) == 2
@@ -68,8 +68,8 @@ class TestMathematicalProperties:
     
     def test_set_operations_commutativity(self):
         """Test that set operations are commutative"""
-        a = Set([Interval(0, 5), Interval(10, 15)])
-        b = Set([Interval(3, 12), Interval(20, 25)])
+        a = IntervalSet([Interval(0, 5), Interval(10, 15)])
+        b = IntervalSet([Interval(3, 12), Interval(20, 25)])
         
         # Union is commutative
         assert a | b == b | a
@@ -79,8 +79,8 @@ class TestMathematicalProperties:
 
     def test_empty_set_properties(self):
         """Test properties of empty sets"""
-        empty = Set()
-        a = Set([Interval(0, 10)])
+        empty = IntervalSet()
+        a = IntervalSet([Interval(0, 10)])
         
         # Empty set is identity for union - result should be equivalent to a
         union_result = a | empty

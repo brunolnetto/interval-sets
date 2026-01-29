@@ -1,27 +1,27 @@
 import pytest
 import math
-from src.intervals import Point, Interval, Set
+from src.intervals import Point, Interval, IntervalSet
 from src.errors import InvalidIntervalError, OverlappingIntervalError
 
 
 class TestSetCreation:
-    """Test Set creation and initialization."""
+    """Test IntervalSet creation and initialization."""
     
     def test_empty_set_creation(self):
         """Test creating empty sets."""
-        empty = Set()
+        empty = IntervalSet()
         assert len(empty) == 0
         assert empty.is_empty()
         assert not empty  # Should be falsy
         
         # Empty from empty list
-        empty_from_list = Set([])
+        empty_from_list = IntervalSet([])
         assert empty_from_list.is_empty()
     
     def test_single_interval_set(self):
-        """Test Set with single interval."""
+        """Test IntervalSet with single interval."""
         interval = Interval(0, 10)
-        s = Set([interval])
+        s = IntervalSet([interval])
         
         assert len(s) == 1
         assert s[0] == interval
@@ -29,13 +29,13 @@ class TestSetCreation:
         assert bool(s)  # Should be truthy
     
     def test_multiple_disjoint_intervals(self):
-        """Test Set with multiple non-overlapping intervals."""
+        """Test IntervalSet with multiple non-overlapping intervals."""
         intervals = [
             Interval(0, 5),
             Interval(10, 15),
             Interval(20, 25)
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         assert len(s) == 3
         assert s[0] == intervals[0]
@@ -49,7 +49,7 @@ class TestSetCreation:
             Interval(3, 8),  # Overlaps with first
             Interval(10, 15)
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         # Should merge first two intervals
         assert len(s) == 2
@@ -63,7 +63,7 @@ class TestSetCreation:
             Interval(5, 10),  # Adjacent to first
             Interval(15, 20)
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         # Should merge first two intervals
         assert len(s) == 2
@@ -76,7 +76,7 @@ class TestSetCreation:
             Interval(0, 5, open_end=True),  # [0, 5)
             Interval(5, 10)  # [5, 10]
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         # Actually, adjacent intervals DO merge in this implementation
         # The test was wrong about the expected behavior
@@ -89,7 +89,7 @@ class TestSetCreation:
             Interval(0, 5),
             Interval(20, 25)
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         # Should be sorted
         assert s[0].start == 0
@@ -98,49 +98,49 @@ class TestSetCreation:
 
 
 class TestSetProperties:
-    """Test Set properties and methods."""
+    """Test IntervalSet properties and methods."""
     
     def test_measure(self):
         """Test total measure calculation."""
         # Single interval
-        s1 = Set([Interval(0, 10)])
+        s1 = IntervalSet([Interval(0, 10)])
         assert s1.measure() == 10
         
         # Multiple intervals
-        s2 = Set([Interval(0, 5), Interval(10, 15)])
+        s2 = IntervalSet([Interval(0, 5), Interval(10, 15)])
         assert s2.measure() == 10  # 5 + 5
         
         # Empty set
-        empty = Set()
+        empty = IntervalSet()
         assert empty.measure() == 0
         
         # With point intervals
-        s3 = Set([Interval.point(5), Interval(10, 20)])
+        s3 = IntervalSet([Interval.point(5), Interval(10, 20)])
         assert s3.measure() == 10  # 0 + 10
     
     def test_bounds(self):
         """Test bounds calculation using first and last intervals."""
         # Single interval
-        s1 = Set([Interval(5, 15)])
+        s1 = IntervalSet([Interval(5, 15)])
         assert s1[0].start == 5
         assert s1[0].end == 15
         
         # Multiple intervals
-        s2 = Set([Interval(0, 5), Interval(10, 20), Interval(25, 30)])
+        s2 = IntervalSet([Interval(0, 5), Interval(10, 20), Interval(25, 30)])
         assert s2[0].start == 0  # First interval start
         assert s2[-1].end == 30  # Last interval end
         
         # Empty set should have no intervals
-        empty = Set()
+        empty = IntervalSet()
         assert len(empty) == 0
 
 
 class TestSetContainment:
-    """Test Set containment operations."""
+    """Test IntervalSet containment operations."""
     
     def test_contains_value(self):
         """Test value containment in sets."""
-        s = Set([Interval(0, 5), Interval(10, 15)])
+        s = IntervalSet([Interval(0, 5), Interval(10, 15)])
         
         # Values in intervals
         assert 2 in s
@@ -159,7 +159,7 @@ class TestSetContainment:
     
     def test_contains_interval(self):
         """Test interval containment in sets."""
-        s = Set([Interval(0, 10), Interval(20, 30)])
+        s = IntervalSet([Interval(0, 10), Interval(20, 30)])
         
         # Intervals completely within set intervals
         assert Interval(2, 8) in s
@@ -173,8 +173,8 @@ class TestSetContainment:
     
     def test_empty_set_containment(self):
         """Test containment with empty sets."""
-        empty = Set()
-        regular = Set([Interval(0, 10)])
+        empty = IntervalSet()
+        regular = IntervalSet([Interval(0, 10)])
         
         # Empty contains nothing
         assert 5 not in empty
@@ -185,24 +185,24 @@ class TestSetContainment:
 
 
 class TestSetOperations:
-    """Test Set operations."""
+    """Test IntervalSet operations."""
     
     def test_union_operator(self):
         """Test union using | operator."""
-        s1 = Set([Interval(0, 5)])
-        s2 = Set([Interval(10, 15)])
+        s1 = IntervalSet([Interval(0, 5)])
+        s2 = IntervalSet([Interval(10, 15)])
         
         union = s1 | s2
-        # Union returns a Set with multiple intervals
-        assert isinstance(union, Set)
+        # Union returns a IntervalSet with multiple intervals
+        assert isinstance(union, IntervalSet)
         assert len(union) == 2
         assert Interval(0, 5) in union
         assert Interval(10, 15) in union
         
         # Union with overlapping
-        s3 = Set([Interval(3, 8)])
+        s3 = IntervalSet([Interval(3, 8)])
         union_overlap = s1 | s3
-        # Union of overlapping may return single Interval or Set with one interval
+        # Union of overlapping may return single Interval or IntervalSet with one interval
         if isinstance(union_overlap, Interval):
             assert union_overlap == Interval(0, 8)
         else:
@@ -211,11 +211,11 @@ class TestSetOperations:
     
     def test_intersection_operator(self):
         """Test intersection using & operator."""
-        s1 = Set([Interval(0, 10)])
-        s2 = Set([Interval(5, 15)])
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(5, 15)])
         
         intersection = s1 & s2
-        # Intersection may return Interval or Set
+        # Intersection may return Interval or IntervalSet
         if isinstance(intersection, Interval):
             assert intersection == Interval(5, 10)
         else:
@@ -223,30 +223,30 @@ class TestSetOperations:
             assert intersection[0] == Interval(5, 10)
         
         # No intersection
-        s3 = Set([Interval(20, 25)])
+        s3 = IntervalSet([Interval(20, 25)])
         no_intersection = s1 & s3
-        assert isinstance(no_intersection, Set)
+        assert isinstance(no_intersection, IntervalSet)
         assert no_intersection.is_empty()
     
     def test_difference_operator(self):
         """Test difference using - operator."""
-        s1 = Set([Interval(0, 10)])
-        s2 = Set([Interval(3, 7)])
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(3, 7)])
         
         difference = s1 - s2
         assert len(difference) == 2
         # Should be [0,3) and (7,10]
         
         # Complete removal
-        s3 = Set([Interval(0, 10)])
+        s3 = IntervalSet([Interval(0, 10)])
         complete_diff = s1 - s3
         assert complete_diff.is_empty()
     
     def test_complement(self):
         """Test complement operation."""
         # Complement requires explicit universe in this implementation
-        universe = Set([Interval(0, 20)])
-        s = Set([Interval(5, 15)])
+        universe = IntervalSet([Interval(0, 20)])
+        s = IntervalSet([Interval(5, 15)])
         comp = s.complement(universe)
         
         # Should have two intervals: [0, 5) and (15, 20]
@@ -254,12 +254,12 @@ class TestSetOperations:
     
     def test_complement_empty(self):
         """Test complement of empty set."""
-        universe = Set([Interval(0, 10)])
-        empty = Set()
+        universe = IntervalSet([Interval(0, 10)])
+        empty = IntervalSet()
         comp = empty.complement(universe)
         
         # Complement of empty should be the universe
-        # May return Interval or Set depending on implementation
+        # May return Interval or IntervalSet depending on implementation
         if isinstance(comp, Interval):
             assert comp == Interval(0, 10)
         else:
@@ -277,9 +277,9 @@ class TestSetUnionOperation:
     
     def test_union_disjoint_interval(self):
         """Test union with non-overlapping interval."""
-        s = Set([Interval(0, 5)])
+        s = IntervalSet([Interval(0, 5)])
         interval = Interval(10, 15)
-        new_s = s | Set([interval])  # Use union operator
+        new_s = s | IntervalSet([interval])  # Use union operator
         
         assert len(new_s) == 2
         assert Interval(0, 5) in new_s
@@ -287,11 +287,11 @@ class TestSetUnionOperation:
     
     def test_union_overlapping_interval(self):
         """Test union with overlapping interval."""
-        s = Set([Interval(0, 5)])
+        s = IntervalSet([Interval(0, 5)])
         interval = Interval(3, 8)
-        result = s | Set([interval])
+        result = s | IntervalSet([interval])
         
-        # Result might be Interval or Set
+        # Result might be Interval or IntervalSet
         if isinstance(result, Interval):
             assert result == Interval(0, 8)
         else:
@@ -300,9 +300,9 @@ class TestSetUnionOperation:
     
     def test_union_adjacent_interval(self):
         """Test union with adjacent interval."""
-        s = Set([Interval(0, 5)])
+        s = IntervalSet([Interval(0, 5)])
         interval = Interval(5, 10)
-        result = s | Set([interval])
+        result = s | IntervalSet([interval])
         
         # Should merge to single interval
         if isinstance(result, Interval):
@@ -313,9 +313,9 @@ class TestSetUnionOperation:
     
     def test_union_with_empty_set(self):
         """Test union with interval added to empty set."""
-        empty = Set()
+        empty = IntervalSet()
         interval = Interval(5, 10)
-        result = empty | Set([interval])
+        result = empty | IntervalSet([interval])
         
         if isinstance(result, Interval):
             assert result == interval
@@ -325,12 +325,12 @@ class TestSetUnionOperation:
 
 
 class TestSetIteration:
-    """Test Set iteration and indexing."""
+    """Test IntervalSet iteration and indexing."""
     
     def test_iteration(self):
         """Test iterating over set intervals."""
         intervals = [Interval(0, 5), Interval(10, 15), Interval(20, 25)]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         iterated = list(s)
         assert len(iterated) == 3
@@ -339,7 +339,7 @@ class TestSetIteration:
     def test_indexing(self):
         """Test indexing set intervals."""
         intervals = [Interval(0, 5), Interval(10, 15)]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         assert s[0] == intervals[0]
         assert s[1] == intervals[1]
@@ -349,13 +349,13 @@ class TestSetIteration:
 
 
 class TestSetComparison:
-    """Test Set comparison and equality."""
+    """Test IntervalSet comparison and equality."""
     
     def test_equality(self):
         """Test set equality."""
-        s1 = Set([Interval(0, 5), Interval(10, 15)])
-        s2 = Set([Interval(0, 5), Interval(10, 15)])
-        s3 = Set([Interval(0, 10)])  # Different intervals
+        s1 = IntervalSet([Interval(0, 5), Interval(10, 15)])
+        s2 = IntervalSet([Interval(0, 5), Interval(10, 15)])
+        s3 = IntervalSet([Interval(0, 10)])  # Different intervals
         
         assert s1 == s2
         assert s1 != s3
@@ -363,50 +363,50 @@ class TestSetComparison:
     
     def test_equality_with_different_order(self):
         """Test equality with intervals in different order."""
-        s1 = Set([Interval(0, 5), Interval(10, 15)])
-        s2 = Set([Interval(10, 15), Interval(0, 5)])  # Reverse order
+        s1 = IntervalSet([Interval(0, 5), Interval(10, 15)])
+        s2 = IntervalSet([Interval(10, 15), Interval(0, 5)])  # Reverse order
         
         assert s1 == s2  # Should be equal (sets are sorted)
 
 
 class TestSetStringRepresentation:
-    """Test Set string representations."""
+    """Test IntervalSet string representations."""
     
     def test_repr_empty(self):
         """Test repr of empty set."""
-        empty = Set()
+        empty = IntervalSet()
         assert repr(empty) == "∅" or "empty" in repr(empty).lower()
     
     def test_repr_single_interval(self):
         """Test repr of set with single interval."""
-        s = Set([Interval(0, 10)])
+        s = IntervalSet([Interval(0, 10)])
         repr_str = repr(s)
         assert "[0.0, 10.0]" in repr_str
     
     def test_repr_multiple_intervals(self):
         """Test repr of set with multiple intervals."""
-        s = Set([Interval(0, 5), Interval(10, 15)])
+        s = IntervalSet([Interval(0, 5), Interval(10, 15)])
         repr_str = repr(s)
         assert "[0.0, 5.0]" in repr_str
         assert "[10.0, 15.0]" in repr_str
 
 
 class TestSetEdgeCases:
-    """Test Set edge cases and boundary conditions."""
+    """Test IntervalSet edge cases and boundary conditions."""
     
     def test_empty_interval_handling(self):
         """Test handling of empty intervals in sets."""
         empty_interval = Interval.empty()
-        s = Set([empty_interval, Interval(5, 10)])
+        s = IntervalSet([empty_interval, Interval(5, 10)])
         
-        # Set should handle empty intervals appropriately
+        # IntervalSet should handle empty intervals appropriately
         # (may remove them or keep them based on implementation)
         assert len(s) >= 1  # At least the non-empty interval
     
     def test_duplicate_intervals(self):
         """Test handling of duplicate intervals."""
         interval = Interval(0, 10)
-        s = Set([interval, interval, interval])
+        s = IntervalSet([interval, interval, interval])
         
         # Should only keep one copy
         assert len(s) == 1
@@ -421,7 +421,7 @@ class TestSetEdgeCases:
             Interval(15, 20),
             Interval(18, 25)
         ]
-        s = Set(intervals)
+        s = IntervalSet(intervals)
         
         # Should merge into two intervals: [0,12] and [15,25]
         assert len(s) == 2
@@ -432,7 +432,7 @@ class TestSetEdgeCases:
         """Test sets with very small intervals."""
         tiny1 = Interval(0, 1e-10)
         tiny2 = Interval(1e-9, 2e-9)
-        s = Set([tiny1, tiny2])
+        s = IntervalSet([tiny1, tiny2])
         
         assert len(s) == 2
         assert tiny1 in s
@@ -441,7 +441,7 @@ class TestSetEdgeCases:
     def test_boundary_precision(self):
         """Test precision at boundaries."""
         # Test floating point precision issues
-        s = Set([Interval(0, 0.1), Interval(0.1, 0.2)])
+        s = IntervalSet([Interval(0, 0.1), Interval(0.1, 0.2)])
         
         # Should merge to [0, 0.2]
         assert len(s) == 1
@@ -449,24 +449,24 @@ class TestSetEdgeCases:
         assert s[0].end == 0.2
     
     def test_set_class_methods(self):
-        """Test Set class methods for coverage."""
-        # Test Set.point()
-        point_set = Set.point(5)
+        """Test IntervalSet class methods for coverage."""
+        # Test IntervalSet.point()
+        point_set = IntervalSet.point(5)
         assert len(point_set) == 1
         assert point_set[0] == Interval.point(5)
         
-        # Test Set.points()
-        points_set = Set.points([1, 3, 5])
+        # Test IntervalSet.points()
+        points_set = IntervalSet.points([1, 3, 5])
         assert len(points_set) == 3
         
-        # Test Set.interval()
-        interval_set = Set.interval(0, 10, open_start=True)
+        # Test IntervalSet.interval()
+        interval_set = IntervalSet.interval(0, 10, open_start=True)
         assert len(interval_set) == 1
         assert interval_set[0] == Interval(0, 10, open_start=True)
     
     def test_set_with_numeric_elements(self):
-        """Test Set creation with numeric elements (points)."""
-        s = Set([1, 3, 5])  # Should create point intervals
+        """Test IntervalSet creation with numeric elements (points)."""
+        s = IntervalSet([1, 3, 5])  # Should create point intervals
         assert len(s) == 3
         assert 1 in s
         assert 3 in s  
@@ -474,8 +474,8 @@ class TestSetEdgeCases:
         assert 2 not in s
     
     def test_set_with_mixed_elements(self):
-        """Test Set creation with mixed interval and point elements."""
-        s = Set([Interval(0, 5), 10, Interval(15, 20)])
+        """Test IntervalSet creation with mixed interval and point elements."""
+        s = IntervalSet([Interval(0, 5), 10, Interval(15, 20)])
         # Should have 3 intervals: [0,5], [10,10], [15,20]
         assert len(s) == 3
         assert 10 in s  # Point
@@ -483,65 +483,65 @@ class TestSetEdgeCases:
         assert 17 in s  # In interval
     
     def test_set_contains_set(self):
-        """Test Set containment of other sets."""
-        big = Set([Interval(0, 20)])
-        small = Set([Interval(5, 15)])
+        """Test IntervalSet containment of other sets."""
+        big = IntervalSet([Interval(0, 20)])
+        small = IntervalSet([Interval(5, 15)])
         
         assert small in big
         assert big not in small
     
     def test_set_overlaps_empty(self):
-        """Test Set overlap with empty sets."""
-        s = Set([Interval(0, 10)])
-        empty = Set()
+        """Test IntervalSet overlap with empty sets."""
+        s = IntervalSet([Interval(0, 10)])
+        empty = IntervalSet()
         
         assert not s.overlaps(empty)
         assert not empty.overlaps(s)
         assert not empty.overlaps(empty)
     
     def test_set_boolean_operations(self):
-        """Test Set boolean evaluation."""
-        empty = Set()
-        non_empty = Set([Interval(0, 5)])
+        """Test IntervalSet boolean evaluation."""
+        empty = IntervalSet()
+        non_empty = IntervalSet([Interval(0, 5)])
         
         assert not empty  # Empty set should be falsy
         assert non_empty  # Non-empty set should be truthy
 
 
 class TestSetErrorCases:
-    """Test Set error handling."""
+    """Test IntervalSet error handling."""
     
     def test_invalid_interval_in_set(self):
         """Test that invalid intervals are caught when creating sets."""
         with pytest.raises(InvalidIntervalError):
-            Set([Interval(10, 5)])  # Invalid interval
+            IntervalSet([Interval(10, 5)])  # Invalid interval
     
     def test_set_immutability(self):
         """Test that sets are immutable."""
-        s = Set([Interval(0, 10)])
+        s = IntervalSet([Interval(0, 10)])
         
         # Union operation should return new set, not modify existing
-        s2 = s | Set([Interval(15, 20)])
+        s2 = s | IntervalSet([Interval(15, 20)])
         
         assert len(s) == 1  # Original unchanged
         assert len(s2) == 2  # New set has both intervals
 
 
 class TestSetCoverage:
-    """Additional tests to ensure full coverage of Set methods."""
+    """Additional tests to ensure full coverage of IntervalSet methods."""
 
     def test_difference_result_set_coverage(self):
         """
-        Cover branch in Set.difference where difference result is a Set
+        Cover branch in IntervalSet.difference where difference result is a IntervalSet
         and loop continues.
         """
-        # s1: [0, 10] (Split->Set), [20, 30] (No overlap->Interval), [40, 50] (No overlap->Interval)
+        # s1: [0, 10] (Split->IntervalSet), [20, 30] (No overlap->Interval), [40, 50] (No overlap->Interval)
         # s2: [4, 6]
         
-        s1 = Set([Interval(0, 10), Interval(20, 30), Interval(40, 50)])
-        s2 = Set([Interval(4, 6)])
+        s1 = IntervalSet([Interval(0, 10), Interval(20, 30), Interval(40, 50)])
+        s2 = IntervalSet([Interval(4, 6)])
         
-        # 1. [0, 10] - [4, 6] -> Set.
+        # 1. [0, 10] - [4, 6] -> IntervalSet.
         # 2. [20, 30] - [4, 6] -> Interval. (Hit 742, loop back to handle [40, 50])
         # 3. [40, 50] -> Interval.
         
@@ -557,13 +557,13 @@ class TestSetCoverage:
         deg = Interval(5, 5)
         
         # 2. Add to set. _add_element should convert to Point.
-        s = Set()
+        s = IntervalSet()
         s._add_element(deg) 
         assert isinstance(s._intervals[0], Point)
         
         # 3. Create a set where normalization produces an Interval point (not Point)
         # Point(5) U Point(5) -> Interval(5, 5) via union
-        s2 = Set([Point(5), Point(5)])
+        s2 = IntervalSet([Point(5), Point(5)])
         assert not isinstance(s2._intervals[0], Point)
         assert s2._intervals[0].is_point()
         
@@ -579,16 +579,16 @@ class TestSetCoverage:
         """
         Cover the Interval check branches in XOR.
         """
-        # Case 2: left=Set, right=Interval.
-        s_left = Set([Interval(0, 10), Interval(20, 30)])
-        s_right = Set([Interval(100, 105)]) 
+        # Case 2: left=IntervalSet, right=Interval.
+        s_left = IntervalSet([Interval(0, 10), Interval(20, 30)])
+        s_right = IntervalSet([Interval(100, 105)]) 
         res = s_left ^ s_right
-        assert isinstance(res, Set)
+        assert isinstance(res, IntervalSet)
         assert len(res._intervals) == 3
         
-        # Case 3: left=Interval, right=Set.
+        # Case 3: left=Interval, right=IntervalSet.
         res2 = s_right ^ s_left
-        assert isinstance(res2, Set)
+        assert isinstance(res2, IntervalSet)
         assert len(res2._intervals) == 3
 
     def test_continuous_intervals_coverage(self):
@@ -596,7 +596,7 @@ class TestSetCoverage:
         Cover result.append(i) in continuous_intervals property.
         We need a set with non-point intervals.
         """
-        s = Set([Interval(0, 5), Interval(10, 15)])
+        s = IntervalSet([Interval(0, 5), Interval(10, 15)])
         intervals = s.continuous_intervals
         assert len(intervals) == 2
         assert intervals[0] == Interval(0, 5)

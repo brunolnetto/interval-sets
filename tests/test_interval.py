@@ -1,6 +1,6 @@
 import pytest
 import math
-from src.intervals import Point, Interval, Set
+from src.intervals import Point, Interval, IntervalSet
 from src.errors import InvalidIntervalError
 
 
@@ -398,9 +398,9 @@ class TestIntervalEdgeCases:
         a = Interval(0, 5)
         b = Interval(10, 15)
         
-        # Should create a Set with two intervals
+        # Should create a IntervalSet with two intervals
         union = a.union(b)
-        assert isinstance(union, Set)
+        assert isinstance(union, IntervalSet)
         assert len(union) == 2
     
     def test_interval_difference_edge_cases(self):
@@ -426,15 +426,15 @@ class TestIntervalEdgeCases:
         
         # Test | operator (union)
         union = a | b
-        assert isinstance(union, (Interval, Set))
+        assert isinstance(union, (Interval, IntervalSet))
         
         # Test & operator (intersection)
         intersection = a & b
-        assert isinstance(intersection, (Interval, Set))
+        assert isinstance(intersection, (Interval, IntervalSet))
         
         # Test - operator (difference)
         difference = a - b
-        assert isinstance(difference, (Interval, Set))
+        assert isinstance(difference, (Interval, IntervalSet))
 
     def test_intersection_edge_case_open_boundaries(self):
         """
