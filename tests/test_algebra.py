@@ -15,7 +15,6 @@ def test_allen_algebra():
     i3 = Interval(2, 7)
     i4 = Interval(1, 4)
     i5 = Interval(0, 6)
-    i6 = Interval(-2, 0, open_end=True)
     i7 = Interval(10, 15)
 
     # Meets

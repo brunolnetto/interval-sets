@@ -8,7 +8,6 @@ comprehensive coverage of all reachable code in src/intervals.py.
 
 import pytest
 from src.intervals import Interval, IntervalSet, _create_empty_set, _create_set
-from src.errors import InvalidIntervalError
 
 # ============================================================================
 # Interval Edge Cases
@@ -48,7 +47,7 @@ class TestIntervalComparisonOperators:
         interval = Interval(0, 10)
         assert interval != "not an interval"
         assert interval != 5
-        assert interval != None
+        assert interval != None  # noqa: E711
 
     def test_lt_with_non_interval(self):
         """Test less than with non-Interval type."""
@@ -289,7 +288,7 @@ class TestSetComparisonOperators:
         s = IntervalSet([Interval(0, 10)])
         assert s != "not a set"
         assert s != 5
-        assert s != None
+        assert s != None  # noqa: E711
 
     def test_le_subset_operator(self):
         """Test <= subset operator."""

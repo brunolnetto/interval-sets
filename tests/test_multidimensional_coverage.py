@@ -1,5 +1,5 @@
 import pytest
-from src.intervals import Interval, Point
+from src.intervals import Interval
 from src.multidimensional import Box
 
 
@@ -83,3 +83,92 @@ class TestBoxCoverage:
         b = Box([Interval(0, 1)])
         assert not (b == "not a box")
         assert not (b == 123)
+from src.intervals import Interval, IntervalSet
+from src.multidimensional import Box, Set
+
+
+class TestFinalCoverage:
+    def test_intervalset_minkowski_diff_returns_single_interval(self):
+        # A = [0, 10], B = [1, 2]
+        # Erosion: A - B = {x : x + B subset A}
+        # x + [1, 2] subset [0, 10] -> [x+1, x+2] subset [0, 10]
+        # x+1 >= 0 => x >= -1
+        # x+2 <= 10 => x <= 8
+        # Result [-1, 8]
+
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(1, 2)])
+
+        diff = s1.minkowski_difference(s2)
+        assert isinstance(diff, IntervalSet)
+        assert len(diff) == 1
+        assert diff._intervals[0] == Interval(-1, 8)
+
+    def test_intervalset_opening_promotion(self):
+        # Opening = dilate(erode(A, B), B)
+        # s1 = [0, 10], s2 = [1, 2]
+        # erode(s1, s2) -> [-1, 8] (IntervalSet, but internally treated as result)
+        # dilate([-1, 8], [1, 2]) -> [-1+1, 8+2] = [0, 10]
+
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(1, 2)])
+
+        opened = s1.opening(s2)
+        assert isinstance(opened, IntervalSet)
+        assert opened == s1
+
+    def test_intervalset_closing_promotion(self):
+        # Closing = erode(dilate(A, B), B)
+        # s1 = [0, 1], s2 = [2, 3]
+        # dilate([0, 1], [2, 3]) -> [2, 4]
+        # erode([2, 4], [2, 3]) -> [0, 1]
+
+        s1 = IntervalSet([Interval(0, 1)])
+        s2 = IntervalSet([Interval(2, 3)])
+
+        closed = s1.closing(s2)
+        assert isinstance(closed, IntervalSet)
+        assert closed == s1
+
+    def test_multidimensional_convex_hull_no_dimension(self):
+        # Force _dimension is None logic
+        class BrokenSet(Set):
+            def is_empty(self):
+                return False
+
+        s = BrokenSet()
+        s._dimension = None  # explicit None
+        s._boxes = [Box.empty(1)]  # dummy
+
+        hull = s.convex_hull()
+        assert hull.is_empty()
+        assert hull.dimension == 1
+
+    def test_box_intersection_weird_return(self):
+        # Line 181: inter is not Interval and not empty Set
+
+        class MockResult:
+            pass
+
+        class BadInterval:
+            # Mimic Interval enough for Box init
+            def __init__(self):
+                self.start = 0
+                self.end = 1
+                self.open_start = False
+                self.open_end = False
+
+            def is_empty(self):
+                return False
+
+            def intersection(self, other):
+                return MockResult()  # Not an Interval, not empty Set
+
+        # Bypass type hinting checks by using strict=False or just ignoring
+        b_bad = Box([BadInterval()])
+        b_normal = Box([Interval(0, 1)])
+
+        # This will trigger Line 181 where it appends Interval.empty()
+        # because result is not Interval and not "is_empty"
+        res = b_bad.intersection(b_normal)
+        assert res.is_empty()

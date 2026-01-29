@@ -1,7 +1,7 @@
 """Core classes for interval arithmetic and set operations."""
 
 import math
-from typing import Union, List, Optional, Iterator, Tuple, TYPE_CHECKING
+from typing import Union, List, Optional, Iterator, Iterable
 from .errors import InvalidIntervalError
 from .utils import intervals_are_adjacent
 
@@ -812,7 +812,7 @@ class IntervalSet:
     """
 
     def __init__(
-        self, elements: Optional[List[Union[Interval, float, "IntervalSet"]]] = None
+        self, elements: Optional[Iterable[Union[Interval, float, "IntervalSet"]]] = None
     ):
         """
         Create a new set from a list of elements.
@@ -1104,7 +1104,9 @@ class IntervalSet:
         else:
             return IntervalSet(result_intervals)  # Multiple intervals
 
-    def complement(self, universe: Optional["IntervalSet"] = None) -> "IntervalSet":
+    def complement(
+        self, universe: Optional["IntervalSet"] = None
+    ) -> Union[Interval, "IntervalSet"]:
         """
         Compute the complement of this set.
 
@@ -1470,15 +1472,29 @@ class IntervalSet:
             return IntervalSet()
 
         # Intersection of erosion by each component of B
-        res = self
+        # Intersection of erosion by each component of B
+        current_res: Optional[Union["IntervalSet", Interval]] = None
         for i_b in other._intervals:
             res_b = self.minkowski_difference(i_b)
             # Intersection with current result
-            # Note: IntervalSet & IntervalSet returns IntervalSet
-            res = res & res_b
-            if res.is_empty():
+            if current_res is None:
+                current_res = res_b
+            else:
+                # Note: IntervalSet & IntervalSet returns IntervalSet
+                current_res = current_res & res_b  # type: ignore
+
+            if (
+                isinstance(current_res, (Interval, IntervalSet))
+                and current_res.is_empty()
+            ):
                 break
-        return res
+
+        if current_res is None:
+            return IntervalSet()
+
+        if isinstance(current_res, Interval):
+            return IntervalSet([current_res])
+        return current_res
 
     def dilate(self, other: Union["IntervalSet", Interval, float]) -> "IntervalSet":
         """Alias for minkowski_sum"""
@@ -1500,14 +1516,16 @@ class IntervalSet:
         Compute the morphological opening of this set by another.
         Opening(A, B) = dilation(erosion(A, B), B)
         """
-        return self.erode(other).dilate(other)
+        eroded = self.erode(other)
+        return eroded.dilate(other)
 
     def closing(self, other: Union["IntervalSet", Interval]) -> "IntervalSet":
         """
         Compute the morphological closing of this set by another.
         Closing(A, B) = erosion(dilation(A, B), B)
         """
-        return self.dilate(other).erode(other)
+        dilated = self.dilate(other)
+        return dilated.erode(other)
 
     def dilate_epsilon(self, epsilon: float) -> "IntervalSet":
         """

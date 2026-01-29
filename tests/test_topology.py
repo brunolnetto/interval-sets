@@ -1,4 +1,3 @@
-import pytest
 import math
 from src.intervals import Interval, Point, IntervalSet
 from src.multidimensional import Box, Set

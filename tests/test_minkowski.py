@@ -1,8 +1,6 @@
 import pytest
-import math
-from src.intervals import Interval, Point, IntervalSet
+from src.intervals import Interval, IntervalSet
 from src.multidimensional import Box, Set
-from src.errors import InvalidIntervalError
 
 
 class TestMinkowski1D:
@@ -241,7 +239,7 @@ class TestMinkowskiND:
         res_mixed = s_mixed.erode(Box([Interval(0, 5), Interval(0, 5)]))
         assert len(res_mixed.boxes) == 1
 
-        # Erosion by Set (Line 721-727)
+        # Erosion by Set
         s_other = Set(
             [
                 Box([Interval(0, 1), Interval(0, 1)]),
@@ -249,64 +247,98 @@ class TestMinkowskiND:
             ]
         )
         res_e_set = s_mixed.erode(s_other)
-        # (s_mixed - B1) & (s_mixed - B2)
+        assert len(res_e_set.boxes) == 1  # (s_mixed - B1) & (s_mixed - B2)
+
+        # Coverage for Box.distance overlap/adjacency (Line 270)
+        b_adj1 = Box([Interval(0, 1)])
+        b_adj2 = Box([Interval(1, 2)])
+        assert b_adj1.distance(b_adj2) == 0.0
 
         # dilate_epsilon
-        assert s.dilate_epsilon(0) == s
-        assert Set().dilate_epsilon(1.0) == Set()  # Line 744 (dim=1 default)
+        s_eps = Set([Box([Interval(0, 1), Interval(0, 1)])])
+        assert s_eps.dilate_epsilon(0) == s_eps
+        s_eps_res = s_eps.dilate_epsilon(1.0)
+        assert s_eps_res.volume() == 9.0  # [-1, 2] x [-1, 2] = 3 * 3 = 9
+        assert Set().dilate_epsilon(1.0) == Set()
 
         # Opening/Closing aliases
         box_big = Box([Interval(0, 10), Interval(0, 10)])
         box_small = Box([Interval(0, 1), Interval(0, 1)])
         s_big = Set([box_big])
-        assert s_big.opening(box_small) == box_big  # Line 753 coverage?
-        assert s_big.closing(box_small) == box_big  # Line 758 coverage?
+        assert s_big.opening(box_small) == box_big
+        assert s_big.closing(box_small) == box_big
+
+        # Coverage for Set.minkowski_sum promotion and pairwise
+        s_base = Set([Box([Interval(0, 1)])])
+        s_sum = s_base.minkowski_sum(Box([Interval(0, 1)]))  # Promote Box
+        assert s_sum.volume() == 2.0
+
+        s_pair1 = Set([Box([Interval(0, 1)])])
+        s_pair2 = Set([Box([Interval(2, 3)])])
+        s_pair_sum = s_pair1.dilate(s_pair2)  # dilate alias
+        assert s_pair_sum.volume() == 2.0
+
+        # TypeError for erosion
+        import pytest
+
+        with pytest.raises(TypeError):
+            s_base.erode("not a set")
+
+        # Early break in erosion
+        s_breakable = Set([Box([Interval(0, 1)])])
+        s_other_breakable = Set(
+            [
+                Box([Interval(10, 11)]),  # Result empty
+                Box([Interval(0, 1)]),  # Should be skipped by break
+            ]
+        )
+        assert s_breakable.erode(s_other_breakable).is_empty()
 
     def test_containment_nd(self):
         b1 = Box([Interval(0, 10), Interval(0, 10)])
         b2 = Box([Interval(1, 2), Interval(1, 2)])
         b_outside = Box([Interval(11, 12), Interval(11, 12)])
 
-        # Box mismatch in contains (Line 79)
+        # Box mismatch in contains
         assert b1.contains(Box([Interval(0, 1)])) is False
 
         # Box in Box
         assert b2 in b1
         assert b1 not in b2
-        assert Box.empty(2) in b1  # Line 77
+        assert Box.empty(2) in b1
         assert b2 not in Box.empty(2)
 
         # Set in Box
         s2 = Set([b2])
-        assert s2 in b1  # Line 83
-        assert Set() in b1  # Line 81 (in Box.contains)
+        assert s2 in b1
+        assert Set() in b1
 
         # Box in Set
         s1 = Set([b1])
-        assert b2 in s1  # Line 481
-        assert Box.empty(2) in s1  # Line 477
+        assert b2 in s1
+        assert Box.empty(2) in s1
         assert b_outside not in s1
 
-        # Set empty in empty contains (Line 480)
+        # Set empty in empty contains
         assert Box.empty(2) in Set()
 
         # Set in Set
-        assert s2 in s1  # Line 486
-        assert Set() in s1  # Line 484
+        assert s2 in s1
+        assert Set() in s1
 
-        # Dimension mismatch in Set equality (Line 778)
+        # Dimension mismatch in Set equality
         assert Set([Box([Interval(0, 1)])]) != Set(
             [Box([Interval(0, 1), Interval(0, 1)])]
         )
 
         # __contains__ for Box
-        assert [5, 5] in b1  # Line 100
+        assert [5, 5] in b1
 
-        # Box not empty in empty Set contains (Line 477)
+        # Box not empty in empty Set contains
         assert b1 not in Set()
 
     def test_coverage_gap_fill(self):
-        # Box.__eq__ with something having .boxes but not a Set (Line 258)
+        # Box.__eq__ with something having .boxes but not a Set
         class FakeSet:
             def __init__(self):
                 self.boxes = []
@@ -316,21 +348,21 @@ class TestMinkowskiND:
 
         assert Box([Interval(0, 1)]) != FakeSet()
 
-        # Set.minkowski_difference with IntervalSet (Line 709)
+        # Set.minkowski_difference with IntervalSet
         s = Set([Box([Interval(0, 10)])])
         iset = IntervalSet([Interval(0, 1)])
         # Promotion of IntervalSet to Set ensures it's handled.
         assert s.erode(iset) == Box([Interval.closed(0, 9)])
 
-        # Set.minkowski_difference with invalid type (Line 712)
+        # Set.minkowski_difference with invalid type
         with pytest.raises(TypeError):
             s.erode("invalid")
 
-        # Set.minkowski_difference with empty set (Line 715)
+        # Set.minkowski_difference with empty set
         # Erosion by empty set is Set() in our implementation
         assert s.erode(Set()) == Set()
 
-        # Set.minkowski_difference premature break (Line 723)
+        # Set.minkowski_difference premature break
         s_2d = Set([Box([Interval(0, 1), Interval(0, 1)])])
         s_other = Set(
             [
@@ -342,9 +374,9 @@ class TestMinkowskiND:
         # Erosion by B2 is empty, so res becomes empty and loop breaks.
         assert s_2d.erode(s_other).is_empty()
 
-        # Set.__eq__ with non-Set (Line 771)
+        # Set.__eq__ with non-Set
         assert Set() != "not a set"
 
-        # Box.minkowski_difference with empty box (Line 225)
+        # Box.minkowski_difference with empty box
         b1 = Box([Interval(0, 1)])
         assert b1.erode(Box.empty(1)).is_empty()

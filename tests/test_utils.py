@@ -1,5 +1,3 @@
-import pytest
-
 from src.intervals import Interval
 from src.utils import interval_values, intervals_are_adjacent
 

@@ -1,5 +1,4 @@
 import pytest
-import math
 from src.intervals import Point, Interval, IntervalSet
 from src.errors import InvalidIntervalError
 
@@ -366,7 +365,6 @@ class TestIntervalEdgeCases:
         assert not empty.overlaps(empty)
 
         # Test touching intervals with mixed boundaries
-        b = Interval(5, 10, open_start=True)  # (5, 10]
         c = Interval(0, 5, open_end=True)  # [0, 5)
 
         # [0, 5] and (5, 10] should NOT overlap (touching at 5)

@@ -4,7 +4,7 @@ Multi-dimensional interval arithmetic (Boxes and Regions).
 
 from typing import Sequence, List, Union, Tuple, Optional, Iterable
 import math
-from .intervals import Interval, IntervalSet, Point
+from .intervals import Interval, IntervalSet
 
 
 class Box:
@@ -175,7 +175,10 @@ class Box:
                 new_intervals.append(Interval.empty())
             else:
                 # It must be an Interval or Point (subclass of Interval)
-                new_intervals.append(inter)
+                if isinstance(inter, Interval):
+                    new_intervals.append(inter)
+                else:
+                    new_intervals.append(Interval.empty())
 
         return Box(new_intervals)
 
@@ -457,7 +460,7 @@ class Set:
         Create a Set (collection of disjoint boxes).
         The inputs will be normalized to ensure disjointness.
         """
-        self._dimension = None
+        self._dimension: Optional[int] = None
         self._boxes: List[Box] = []
 
         if boxes:
@@ -510,7 +513,7 @@ class Set:
             return
 
         if self._dimension is None:
-            self._dimension = box.dimension
+            self._dimension = int(box.dimension)
         elif self._dimension != box.dimension:
             raise ValueError(
                 f"Dimension mismatch: Set({self._dimension}) vs Box({box.dimension})"
@@ -606,6 +609,10 @@ class Set:
         if self.is_empty():
             return Box.empty(self._dimension or 1)
 
+        if self._dimension is None:
+            # Should be handled by is_empty check, but for typing:
+            return Box.empty(1)
+
         intervals = []
         for d in range(self._dimension):
             inf_d = min(b.intervals[d].start for b in self._boxes)
@@ -644,7 +651,7 @@ class Set:
 
     def contains(self, item: Union[Sequence[float], Box, "Set"]) -> bool:
         """Check if point, Box, or Set is contained in this Set."""
-        if hasattr(item, "intervals"):  # Box-like
+        if isinstance(item, Box):  # Box-like
             if item.is_empty():
                 return True
             # Box is in Set if it's contained in the UNION of component boxes.
@@ -652,7 +659,7 @@ class Set:
                 return item.is_empty()
             return (Set([item]) - self).is_empty()
 
-        if hasattr(item, "boxes"):  # Set-like
+        if isinstance(item, Set):  # Set-like
             if item.is_empty():
                 return True
             return all(self.contains(b) for b in item.boxes)
@@ -800,13 +807,15 @@ class Set:
             return []
 
         n = len(self._boxes)
-        adj = [[] for _ in range(n)]
+        n = len(self._boxes)
+        adj: List[List[int]] = [[] for _ in range(n)]
 
         # Build adjacency list
         for i in range(n):
             for j in range(i + 1, n):
                 # Check if closures overlap in all dimensions
                 is_adj = True
+                assert self._dimension is not None
                 for k in range(self._dimension):
                     # We use Interval.closure() followed by overlaps()
                     if (
@@ -857,7 +866,7 @@ class Set:
             return Set([box.minkowski_sum(other) for box in self._boxes])
 
         if not isinstance(other, Set):
-            other = Set([other])
+            other = Set([other])  # type: ignore
 
         if other.is_empty():
             return other
@@ -906,13 +915,13 @@ class Set:
             return Set()
 
         # Intersection of erosions by each component box
-        res = self
+        current_res: "Set" = self
         for b_b in other.boxes:
             res_b = self.minkowski_difference(b_b)
-            res = res & res_b
-            if res.is_empty():
+            current_res = current_res & res_b  # type: ignore
+            if current_res.is_empty():
                 break
-        return res
+        return current_res
 
     def dilate(
         self, other: Union["Set", Box, Interval, IntervalSet, Sequence[float], float]

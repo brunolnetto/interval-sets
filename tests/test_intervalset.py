@@ -1,7 +1,6 @@
 import pytest
-import math
 from src.intervals import Point, Interval, IntervalSet
-from src.errors import InvalidIntervalError, OverlappingIntervalError
+from src.errors import InvalidIntervalError
 
 
 class TestSetCreation:
@@ -167,6 +166,7 @@ class TestSetContainment:
         """Test containment with empty sets."""
         empty = IntervalSet()
         regular = IntervalSet([Interval(0, 10)])
+        assert regular.measure() == 10.0  # Use regular
 
         # Empty contains nothing
         assert 5 not in empty

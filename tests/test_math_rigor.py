@@ -1,6 +1,4 @@
-import pytest
 from src.intervals import Interval, IntervalSet, Point
-from src.errors import InvalidIntervalError
 
 
 class TestMathematicalRigor:

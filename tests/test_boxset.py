@@ -1,5 +1,5 @@
 import pytest
-from src.intervals import Interval, Point, IntervalSet
+from src.intervals import Interval, IntervalSet
 from src.multidimensional import Box, Set
 
 

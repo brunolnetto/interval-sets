@@ -2,7 +2,6 @@
 Integration tests for complex workflows and real-world scenarios.
 """
 
-import pytest
 from src.intervals import Interval, IntervalSet
 
 

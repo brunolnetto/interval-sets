@@ -1,4 +1,3 @@
-import pytest
 import math
 from src.intervals import Interval, IntervalSet
 
@@ -72,10 +71,10 @@ def test_invalid_infinity():
     # Attempt to create closed infinity
     # It should be forced to open, not raise error (based on my implementation)
     i = Interval(float("-inf"), 5, open_start=False)
-    assert i.open_start == True
+    assert i.open_start
 
     i2 = Interval(5, float("inf"), open_end=False)
-    assert i2.open_end == True
+    assert i2.open_end
 
 
 def test_empty_infinity():
