@@ -83,27 +83,28 @@ class TestIntervalValidation:
         with pytest.raises(ValueError, match="cannot be NaN"):
             Interval(0, float('nan'))
     
-    def test_infinite_boundaries_error(self):
-        """Test error with infinite boundaries."""
-        with pytest.raises(ValueError, match="cannot be infinite"):
-            Interval(float('inf'), 5)
-        
-        with pytest.raises(ValueError, match="cannot be infinite"):
-            Interval(0, float('-inf'))
     
-    def test_invalid_open_same_endpoints(self):
-        """Test error when creating open interval with same start/end (except empty)."""
-        # This should fail - open interval with same non-zero endpoints
-        with pytest.raises(InvalidIntervalError, match="Cannot create open interval"):
-            Interval(5, 5, open_start=True, open_end=True)
+    def test_infinite_boundaries_error(self):
+        """Test with infinite boundaries."""
+        # Infinite boundaries are now allowed (treated as open by constructor usually, but manual is fine)
+        # Wait, start=inf, end=5 -> start > end. Should raise InvalidIntervalError.
+        with pytest.raises(InvalidIntervalError, match="must be <= end"):
+             Interval(float('inf'), 5)
+
+        # Valid infinite interval
+        valid_inf = Interval(0, float('inf'))
+        assert valid_inf.end == float('inf')
         
-        # But (0,0) should work (it's the empty interval)
-        empty = Interval(0, 0, open_start=True, open_end=True)
+    def test_invalid_open_same_endpoints(self):
+        """Test creating open interval with same start/end (except empty)."""
+        # This now normalizes to empty interval
+        empty = Interval(5, 5, open_start=True, open_end=True)
         assert empty.is_empty()
         
-        # Mixed boundaries with same endpoints should also fail
-        with pytest.raises(InvalidIntervalError, match="Cannot create open interval"):
-            Interval(5, 5, open_start=True, open_end=False)
+        # Mixed also becomes empty?
+        # Logic: if start == end and (open_start or open_end): ... -> empty
+        normalized = Interval(5, 5, open_start=True, open_end=False)
+        assert normalized.is_empty()
 
 
 class TestIntervalProperties:

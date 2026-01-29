@@ -50,17 +50,25 @@ class Interval:
         # Validate numeric values
         if math.isnan(start) or math.isnan(end):
             raise ValueError("Interval boundaries cannot be NaN")
-        if math.isinf(start) or math.isinf(end):
-            raise ValueError("Interval boundaries cannot be infinite")
+        # Infinite boundaries are allowed, but usually treated as open in R
+        
+        # Enforce open boundaries for infinity to adhere to R topology
+        if math.isinf(start) and start < 0:
+            open_start = True
+        if math.isinf(end) and end > 0:
+            open_end = True
             
         # Validate interval bounds
         if start > end:
             raise InvalidIntervalError(f"Invalid interval: start ({start}) must be <= end ({end})")
             
-        # Validate open interval with same start/end (only (0,0) allowed for empty)
+        # Normalize any empty interval (start==end and open) to canonical (0, 0)
+        # This handles (inf, inf) and prevents issues with is_empty() checks
         if start == end and (open_start or open_end):
-            if not (start == 0 and open_start and open_end):
-                raise InvalidIntervalError("Cannot create open interval with start == end (except empty interval (0,0))")
+            start = 0.0
+            end = 0.0
+            open_start = True
+            open_end = True
         
         self._start = start
         self._end = end
@@ -227,6 +235,145 @@ class Interval:
     def is_adjacent(self, other: 'Interval') -> bool:
         """Check if intervals are adjacent (touching but not overlapping)."""
         return intervals_are_adjacent(self, other)
+        
+    def distance(self, other: 'Interval') -> float:
+        """
+        Compute the Euclidean distance between this interval and another.
+        Returns 0.0 if they overlap or touch.
+        """
+        if self.overlaps(other) or self.is_adjacent(other):
+            return 0.0
+            
+        # If disjoint, distance is gap between them
+        if self._end < other._start:
+            return other._start - self._end
+        elif other._end < self._start:
+            return self._start - other._end
+            
+        return 0.0 # Should be covered above
+
+
+    # --- Allen's Interval Algebra Relations ---
+    
+    def precedes(self, other: 'Interval') -> bool:
+        """
+        Allen's 'precedes' (b): Self is strictly before other.
+        """
+        # End < Start (with boundary checks)
+        if self._end < other._start:
+            return True
+        if self._end == other._start:
+            # strictly before means no shared point. 
+            # If touching, it's 'meets', unless both open/etc makes them separated?
+            # 'precedes' implies a gap or at least no touch? 
+            # Usually Allen's 'before' means end < start.
+            # If end == start, it's 'meets' if they touch, or 'before' if there is a gap (e.g. open-open)?
+            # In continuous reals, (0,1) and (1,2) has a 'gap' of size 0 but no point.
+            # We treat strict < as precedes.
+            # If they touch (is_adjacent), it is 'meets'.
+            return not self.is_adjacent(other) and self.intersection(other).is_empty()
+        return False
+
+    def meets(self, other: 'Interval') -> bool:
+        """
+        Allen's 'meets' (m): Self touches other, end to start.
+        Equivalent to is_adjacent where self is on the left, but MUST be disjoint (no overlap).
+        """
+        if not (self._end == other._start and self.is_adjacent(other)):
+            return False
+            
+        # Allen's meets requires disjointness.
+        # [0, 5] and [5, 10] overlap at 5, so strictly they 'overlap' not 'meet'.
+        # [0, 5] and (5, 10] meet.
+        return self.intersection(other).is_empty()
+
+    def overlaps_strictly(self, other: 'Interval') -> bool:
+        """
+        Allen's 'overlaps' (o): Self starts before other, ends inside other.
+        Distinguished from general 'overlaps()' which means 'intersects'.
+        """
+        if not self.overlaps(other):
+            return False
+        # strict overlap: start1 < start2 < end1 < end2
+        # We need to handle equalities carefully with start/end points 
+        # But conceptually: starts before, ends during.
+        
+        # Condition 1: Self starts strictly before Other
+        # (Or starts same place but includes points before? complex with boundaries)
+        # Simplified: self.start < other.start (lexicographical with openness)
+        
+        starts_before = (self._start < other._start) or \
+                       (self._start == other._start and not self._open_start and other._open_start)
+                       
+        # Condition 2: Self ends strictly before Other
+        ends_before = (self._end < other._end) or \
+                     (self._end == other._end and self._open_end and not other._open_end)
+                     
+        # Condition 3: They must intersect (already checked)
+        
+        return starts_before and ends_before
+
+    def starts(self, other: 'Interval') -> bool:
+        """
+        Allen's 'starts' (s): Self and other start together, self ends earlier.
+        """
+        same_start = (self._start == other._start and self._open_start == other._open_start)
+        ends_earlier = (self._end < other._end) or \
+                      (self._end == other._end and self._open_end and not other._open_end)
+        return same_start and ends_earlier
+
+    def during(self, other: 'Interval') -> bool:
+        """
+        Allen's 'during' (d): Self is strictly contained in other.
+        """
+        # Starts later
+        starts_later = (self._start > other._start) or \
+                      (self._start == other._start and self._open_start and not other._open_start)
+        # Ends earlier
+        ends_earlier = (self._end < other._end) or \
+                      (self._end == other._end and self._open_end and not other._open_end)
+        
+        return starts_later and ends_earlier
+
+    def finishes(self, other: 'Interval') -> bool:
+        """
+        Allen's 'finishes' (f): Self ends with other, but starts later.
+        """
+        starts_later = (self._start > other._start) or \
+                      (self._start == other._start and self._open_start and not other._open_start)
+        
+        same_end = (self._end == other._end and self._open_end == other._open_end)
+        
+        return starts_later and same_end
+
+    def equals(self, other: 'Interval') -> bool:
+        """Allen's 'equals' (e)."""
+        return self == other
+
+    # Inverses
+    def met_by(self, other: 'Interval') -> bool: 
+        """Allen's 'met by' (mi)."""
+        return other.meets(self)
+    
+    def overlapped_by(self, other: 'Interval') -> bool: 
+        """Allen's 'overlapped by' (oi)."""
+        return other.overlaps_strictly(self)
+    
+    def started_by(self, other: 'Interval') -> bool: 
+        """Allen's 'started by' (si)."""
+        return other.starts(self)
+    
+    def contains_strictly(self, other: 'Interval') -> bool: 
+        """Allen's 'contains' (di)."""
+        return other.during(self)
+        
+    def finished_by(self, other: 'Interval') -> bool: 
+        """Allen's 'finished by' (fi)."""
+        return other.finishes(self)
+    
+    def preceded_by(self, other: 'Interval') -> bool: 
+        """Allen's 'preceded by' (bi)."""
+        return other.precedes(self)
     
     def intersection(self, other: 'Interval') -> Union['Interval', 'Set']:
         """
@@ -768,7 +915,8 @@ class Set:
         Returns:
             The complement set
         """
-        # For now, require explicit universe
+        # Use (-inf, inf) as default universe if not specified
+        # Use (-inf, inf) as default universe if not specified
         if universe is None:
             raise NotImplementedError("Complement requires explicit universe set")
         
@@ -948,6 +1096,81 @@ class Set:
     def connected_components(self) -> List['Set']:
         """Get the connected components of this set."""
         return [Set([interval]) for interval in self._intervals]
+    def distance(self, other: 'Set') -> float:
+        """
+        Compute the minimum distance between two sets (gap).
+        """
+        if self.is_empty() or other.is_empty():
+            return float('inf') # Standard convention? Or undefined?
+            
+        if self.overlaps(other):
+            return 0.0
+            
+        # Brute force min distance between all pairs of intervals
+        min_dist = float('inf')
+        for i1 in self._intervals:
+            for i2 in other._intervals:
+                d = i1.distance(i2)
+                if d < min_dist:
+                    min_dist = d
+        return min_dist
+
+    def hausdorff_distance(self, other: 'Set') -> float:
+        """
+        Compute the Hausdorff distance between two sets.
+        d_H(A, B) = max( sup_{x in A} d(x, B), sup_{y in B} d(y, A) )
+        """
+        if self.is_empty() or other.is_empty():
+            return float('inf')
+            
+        def directed_hausdorff(source: 'Set', target: 'Set') -> float:
+            max_dist = 0.0
+            for interval in source._intervals:
+                # Check start endpoint
+                if interval.start == float('-inf'):
+                    # If target doesn't extend to -inf, distance is inf
+                    if not any(i.start == float('-inf') for i in target._intervals):
+                        return float('inf')
+                    d_start = 0.0
+                else:
+                    d_start = target.distance_to_point(interval.start)
+                
+                # Check end endpoint
+                if interval.end == float('inf'):
+                    # If target doesn't extend to inf, distance is inf
+                    if not any(i.end == float('inf') for i in target._intervals):
+                        return float('inf')
+                    d_end = 0.0
+                else:
+                    d_end = target.distance_to_point(interval.end)
+                    
+                max_dist = max(max_dist, d_start, d_end)
+            return max_dist
+
+        return max(directed_hausdorff(self, other), directed_hausdorff(other, self))
+        
+    def distance_to_point(self, point: float) -> float:
+        """Calculate minimum distance from a point to this set."""
+        if self.is_empty():
+            return float('inf')
+        if self.contains(point):
+            return 0.0
+            
+        min_dist = float('inf')
+        for interval in self._intervals:
+            # Distance to interval [s, e] is max(s - p, 0, p - e)
+            # effectively: if p < s: s-p. if p > e: p-e. else 0.
+            if point < interval.start:
+                d = interval.start - point
+            elif point > interval.end:
+                d = point - interval.end
+            else:
+                d = 0.0
+            
+            if d < min_dist:
+                min_dist = d
+        return min_dist
+
 
 # Helper functions to avoid circular imports
 def _create_empty_set():

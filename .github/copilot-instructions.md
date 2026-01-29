@@ -1,113 +1,80 @@
-# Copilot Instructions: Interval Arithmetic Library
+# Copilot Instructions: Interval Sets Library
 
 ## Architecture Overview
 
-This is a Python library for interval arithmetic and set operations on the real number line. The core design follows **immutable data structures** with **mathematical correctness** as the primary goal.
+This is a Python library for interval set operations on the real number line. The core design follows **immutable data structures** with **mathematical correctness** (Set Theory) as the primary goal.
 
 ### Core Components (src/intervals.py)
 
 - **Interval**: Single continuous intervals with configurable open/closed boundaries `[a,b]`, `(a,b)`, `[a,b)`, `(a,b]`
 - **Set**: Collections of disjoint intervals with automatic merging and normalization
+- **Point**: Degenerate interval `[x,x]` inheriting from `Interval`
 
 ### Key Architectural Patterns
 
-1. **Immutability First**: All operations return new objects; never mutate existing ones
-2. **Automatic Merging**: Set automatically merges overlapping/adjacent intervals on construction
-3. **Boundary Semantics**: Open vs closed boundaries are critical - `(0,1)` and `[0,1]` behave differently
-4. **Type-Safe Operations**: Strong typing with descriptive error messages via `src/errors.py`
-5. **Python Protocol Compliance**: Full support for `in`, `hash()`, comparison operators, iteration
+1.  **Immutability First**: All operations (Union, Intersection, etc.) return new objects; never mutate existing ones (except for internal init normalization).
+2.  **Automatic Merging (Canonical Form)**: `Set` automatically sorts and merges overlapping/adjacent intervals on construction (`_normalize`).
+    -   *Example:* `Set([ [0,5], [4,10] ])` -> `Set([ [0,10] ])`
+    -   *Example:* `Set([ (0,10), [10,20) ])` -> `Set([ (0,20) ])`
+3.  **Boundary Semantics**: Open vs closed boundaries are critical.
+    -   `[0, 1]` intersects `(1, 2)` -> Empty (disjoint)
+    -   `[0, 1]` intersects `[1, 2]` -> Point `1`
+    -   `[0, 1]` unions `(1, 2)` -> `[0, 2)` (Adjacent merge)
+4.  **Set Theory vs Interval Arithmetic**: This library implements **Set Operations** (Union, Intersection, Difference), NOT numerical error-bounding arithmetic.
+    -   `+` operator acts as Union (if applicable/safe) or is discouraged in favor of `|`.
+5.  **Type-Safe Operations**: Strong typing with descriptive error messages via `src/errors.py`.
 
 ## Development Workflow
 
-### Essential Commands (via Makefile)
+### Essential Commands
 ```bash
-make test              # Run pytest suite
-make test-coverage     # Generate HTML coverage report
-make lint             # Check with ruff + black
-make format           # Auto-format with black + ruff + isort
-make type-check       # Run mypy
-make pre-commit       # Run all pre-commit hooks
+pytest                 # Run test suite
+pytest --cov=src       # Run with coverage (current standard: 100%)
 ```
 
 ### Testing Patterns
-- **Fixtures in conftest.py**: Reusable test objects (points, intervals, disjoint intervals)
-- **Parameterized tests**: Use `@pytest.mark.parametrize` for boundary condition testing
-- **Error testing**: Verify specific exception types and messages
-- **Property-based testing**: Test mathematical properties (associativity, commutativity)
-
-Example test pattern:
-```python
-def test_interval_contains_point(self, small_interval, point_five):
-    assert point_five in small_interval
-    assert 5 in small_interval  # Also test numeric values
-```
+-   **Math Rigor Tests (tests/test_math_rigor.py)**: Use specific tests for mathematical edge cases (e.g., disconnected difference results, adjacent unions).
+-   **Fixtures**: Use standard pytest fixtures.
+-   **Coverage**: Maintain 100% branch coverage.
 
 ## Critical Implementation Details
 
 ### Boundary Handling
 Open/closed boundaries affect all operations. When implementing:
-- Check `open_start`/`open_end` flags
-- Use `intervals_are_adjacent()` from utils.py for merge logic
-- Remember: `(0,1)` and `[1,2]` are NOT adjacent, but `(0,1]` and `[1,2]` ARE
+-   **Union**: If boundaries touch/overlap, the result is *Closed* if *either* source is Closed (Logic: `open = open1 AND open2` if boundaries match).
+-   **Intersection**: If boundaries touch/overlap, the result is *Open* if *either* source is Open (Logic: `open = open1 OR open2` if boundaries match).
 
-### Error Handling Conventions
-Use helper functions from `src/errors.py`:
-```python
-# For legacy compatibility (still used in errors.py)
-raise point_error('+', other)  # Auto-generates type error message
-raise continuous_interval_error('<=', other)
-
-# For validation
-raise InvalidIntervalError(f"Invalid interval: start ({start}) must be <= end ({end})")
-```
-
-### Set Merge Algorithm
-The `_add_interval_internal()` method is critical - it maintains the non-overlapping invariant:
-1. Sort intervals by start point
-2. Check each interval against existing ones for overlap/adjacency
-3. Merge when `is_overlapping()` or `intervals_are_adjacent()` returns True
-4. Union operation must handle all boundary combinations
+### Set Normalization
+The `_normalize()` method in `Set` is the source of truth for canonical representation:
+1.  **Filter**: `_add_element` filters out empty intervals/sets immediately.
+2.  **Sort**: Intervals sorted by start, then end.
+3.  **Merge**: Greedy merge of overlapping or adjacent intervals.
 
 ### String Representation Standards
-- Points: `Interval.point(5)` 
-- Intervals: Mathematical notation `[0, 10]`, `(0, 10)`, `[0, 10)`, `(0, 10]`
-- Set: `{[0, 5], [10, 15]}` or `∅` for empty
+-   **Points**: `Point(5)` or sometimes formatted in sets.
+-   **Intervals**: Mathematical notation `[0, 10]`, `(0, 10)`, `[0, 10)`, `(0, 10]`
+-   **Set**: `{[0, 5], [10, 15]}` or `∅` for empty
 
 ## Code Style Conventions
 
 ### Imports
-Use relative imports within package: `from .errors import point_error`
-
-### Documentation
-- All public methods need comprehensive docstrings with Args/Returns/Raises/Examples
-- Include mathematical notation in docstrings where relevant
-- Examples should be runnable in doctest format
+-   Use relative imports `from . import ...` within `src/`.
+-   Use explicit imports `from src.intervals import ...` in tests.
 
 ### Type Hints
-- Use `TYPE_CHECKING` imports to avoid circular dependencies
-- Forward reference classes as strings: `'ContinuousInterval'`
-- Use Union types for operations that can return different types
-
-### Testing Requirements
-- Test mathematical properties (reflexivity, transitivity, etc.)
-- Test boundary conditions extensively (open vs closed boundaries)
-- Test error cases with specific exception types
-- Use fixtures from conftest.py to avoid duplication
-- Aim for 95%+ coverage (current standard)
+-   Use `TYPE_CHECKING` imports to avoid circular dependencies.
+-   Forward reference classes as strings: `'Interval'`, `'Set'`.
+-   Use `Union` or `|` (Python 3.10+) for return types: `Union[Interval, Set]`.
 
 ## Common Pitfalls
 
-1. **Boundary Logic**: Always consider how open/closed boundaries interact in operations
-2. **Immutability**: Never modify objects in place - always return new instances
-3. **Empty Intervals**: Handle empty intervals correctly in all operations
-4. **Type Checking**: Use isinstance() checks before accessing attributes
-5. **Merge Logic**: DisjointInterval merge algorithm must preserve mathematical correctness
+1.  **Set Operations Return Types**: Operations like `union` can return either an `Interval` (if connected) or a `Set` (if disjoint). Always check type or use polymorphic methods carefully.
+2.  **Immutability**: `Set` has in-place operators (`|=`) which technically modify internal state *in standard Python sets*, but here they generally return new instances or reassignment. Be careful with internal state (`self._intervals`) which should only be modified during `__init__`.
+3.  **Adjacent vs Overlap**: `[0,1)` and `[1,2]` are adjacent (mergeable). `[0,1)` and `(1,2)` are disjoint (gap at 1).
 
 ## Integration Points
 
-- Uses `utils.py` for interval comparison and adjacency logic
-- All errors inherit from `IntervalError` base class
-- Package exports controlled via `src/__init__.py` - update when adding public classes
-- Test fixtures in `tests/conftest.py` - add new fixtures for common test objects
+-   **Errors**: `InvalidIntervalError` for bad construction `(5,0)`.
+-   **Utils**: `intervals_are_adjacent` helper.
 
-When implementing new features, prioritize mathematical correctness over performance, maintain immutability, and ensure comprehensive test coverage with both success and error cases.
+When implementing new features, prioritize **mathematical correctness** (Set Theory strictness) over performance. Ensure all edge cases (empty sets, infinite bounds if added, adjacent boundaries) are covered by tests.
