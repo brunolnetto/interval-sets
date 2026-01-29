@@ -113,6 +113,11 @@ jobs:
         python examples/schedule_management.py
         python examples/data_range_analysis.py
         python examples/temperature_monitoring.py
+        python examples/advanced_geometry.py
+        python examples/collision_detection.py
+        python examples/csg_3d.py
+        python examples/spatio_temporal_query.py
+        python examples/composability.py
 
     - name: Validate README
       run: |
