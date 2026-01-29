@@ -1,6 +1,6 @@
 import pytest
-from src.intervals import Interval
-from src.multidimensional import Box
+from src.intervals import Interval, IntervalSet
+from src.multidimensional import Box, Set
 
 
 class TestBoxCoverage:
@@ -83,8 +83,6 @@ class TestBoxCoverage:
         b = Box([Interval(0, 1)])
         assert not (b == "not a box")
         assert not (b == 123)
-from src.intervals import Interval, IntervalSet
-from src.multidimensional import Box, Set
 
 
 class TestFinalCoverage:

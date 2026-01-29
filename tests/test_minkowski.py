@@ -380,3 +380,29 @@ class TestMinkowskiND:
         # Box.minkowski_difference with empty box
         b1 = Box([Interval(0, 1)])
         assert b1.erode(Box.empty(1)).is_empty()
+
+    def test_intervalset_minkowski_diff_returns_single_interval(self):
+        # A = [0, 10], B = [1, 2]
+        # Result [-1, 8]
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(1, 2)])
+        diff = s1.minkowski_difference(s2)
+        assert isinstance(diff, IntervalSet)
+        assert len(diff) == 1
+        assert diff._intervals[0] == Interval(-1, 8)
+
+    def test_intervalset_opening_promotion(self):
+        # Opening = dilate(erode(A, B), B)
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(1, 2)])
+        opened = s1.opening(s2)
+        assert isinstance(opened, IntervalSet)
+        assert opened == s1
+
+    def test_intervalset_closing_promotion(self):
+        # Closing = erode(dilate(A, B), B)
+        s1 = IntervalSet([Interval(0, 1)])
+        s2 = IntervalSet([Interval(2, 3)])
+        closed = s1.closing(s2)
+        assert isinstance(closed, IntervalSet)
+        assert closed == s1
