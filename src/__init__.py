@@ -17,16 +17,14 @@ from .errors import (
 
 __all__ = [
     # Core classes
-    "Interval", 
+    "Interval",
     "IntervalSet",
     "Box",
     "Set",
-    
     # Exceptions
     "IntervalError",
-    "InvalidIntervalError", 
+    "InvalidIntervalError",
     "OverlappingIntervalError",
-    
     # Error functions
     "point_error",
     "continuous_interval_error",

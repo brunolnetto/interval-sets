@@ -1,20 +1,23 @@
-
 """
 Practical Example: 2D Collision Detection and Navigation Space.
 
 This script demonstrates how to use the 'Set' and 'Box' classes to define
 complex 2D environments and calculate navigational constraints.
 """
+
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.intervals import Interval
 from src.multidimensional import Box, Set
 
+
 def print_result(msg, result):
     print(f"\n>>> {msg}")
     print(result)
+
 
 def run_demo():
     print("=== 2D COLLISION DETECTION DEMO ===")
@@ -31,22 +34,26 @@ def run_demo():
     wall = Box([Interval(0, 10), Interval(0, 80)])
 
     obstacles = Set([pillar, wall])
-    print_result("Obstacles defined (Volume)", obstacles.volume()) # 400 + 800 = 1200
+    print_result("Obstacles defined (Volume)", obstacles.volume())  # 400 + 800 = 1200
 
     # 3. Calculate "Walkable Space" (Universe minus Obstacles)
     walkable_space = world - obstacles
-    print_result("Walkable Space Volume", walkable_space.volume()) # 10000 - 1200 = 8800
-    print(f"Divided into {len(walkable_space.boxes)} disjoint boxes for exact calculation.")
+    print_result(
+        "Walkable Space Volume", walkable_space.volume()
+    )  # 10000 - 1200 = 8800
+    print(
+        f"Divided into {len(walkable_space.boxes)} disjoint boxes for exact calculation."
+    )
 
     # 4. Player Positioning & Collision
     # Player represented as a 2x2 box
     player_size = Box([Interval(-1, 1), Interval(-1, 1)])
-    player_pos_1 = (50, 50) # Center of the pillar
-    
+    player_pos_1 = (50, 50)  # Center of the pillar
+
     # Check collision by inflating obstacles by player size (Minkowski Sum)
     # This creates the "C-Space" (Configuration Space) obstacles
     c_obstacles = obstacles.dilate(player_size)
-    
+
     if player_pos_1 in c_obstacles:
         print(f"\n[!] Collision detected at {player_pos_1}")
         print(f"    (The center of a 2x2 player is inside an inflated obstacle)")
@@ -61,6 +68,7 @@ def run_demo():
     bounding_box = obstacles.convex_hull()
     print_result("Obstacles Bounding Box", bounding_box)
     print(f"Maximum obstacle span (diameter): {obstacles.diameter():.2f}")
+
 
 if __name__ == "__main__":
     run_demo()

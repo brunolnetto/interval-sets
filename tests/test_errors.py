@@ -19,7 +19,7 @@ def test_operand_error_message_format():
 def test_operand_error_message_with_different_operators():
     """Test various operators"""
     operators = ["+", "-", "*", "/", "==", "!=", "<", "<=", ">", ">="]
-    
+
     for op in operators:
         msg = operand_error_message("Type1", op, "Type2")
         assert f"for {op}:" in msg
@@ -29,7 +29,7 @@ def test_operand_error_message_with_different_operators():
 def test_point_error_returns_type_error():
     """Test point_error returns TypeError"""
     error = point_error("+", "string")
-    
+
     assert isinstance(error, TypeError)
 
 
@@ -37,7 +37,7 @@ def test_point_error_message_content():
     """Test point_error message contains relevant information"""
     error = point_error("+", "string")
     error_msg = str(error)
-    
+
     assert "Point" in error_msg
     assert "+" in error_msg
     assert "str" in error_msg
@@ -52,7 +52,7 @@ def test_point_error_with_various_types():
         ([1, 2], "list"),
         ({"key": "val"}, "dict"),
     ]
-    
+
     for obj, expected_type in test_objects:
         error = point_error("+", obj)
         assert expected_type in str(error)
@@ -61,7 +61,7 @@ def test_point_error_with_various_types():
 def test_continuous_interval_error_returns_type_error():
     """Test continuous_interval_error returns TypeError"""
     error = continuous_interval_error("<", 42)
-    
+
     assert isinstance(error, TypeError)
 
 
@@ -69,7 +69,7 @@ def test_continuous_interval_error_message_content():
     """Test continuous_interval_error message contains relevant information"""
     error = continuous_interval_error("<=", [1, 2, 3])
     error_msg = str(error)
-    
+
     assert "ContinuousInterval" in error_msg
     assert "<=" in error_msg
     assert "list" in error_msg
@@ -78,7 +78,7 @@ def test_continuous_interval_error_message_content():
 def test_interval_error_is_exception():
     """Test IntervalError is an Exception"""
     assert issubclass(IntervalError, Exception)
-    
+
     # Should be able to raise and catch
     with pytest.raises(IntervalError):
         raise IntervalError("Test error")
@@ -94,7 +94,7 @@ def test_invalid_interval_error_can_be_raised():
     """Test InvalidIntervalError can be raised and caught"""
     with pytest.raises(InvalidIntervalError) as exc_info:
         raise InvalidIntervalError("Test invalid interval")
-    
+
     assert "Test invalid interval" in str(exc_info.value)
 
 
@@ -119,7 +119,7 @@ def test_overlapping_interval_error_can_be_raised():
     """Test OverlappingIntervalError can be raised and caught"""
     with pytest.raises(OverlappingIntervalError) as exc_info:
         raise OverlappingIntervalError("Test overlapping intervals")
-    
+
     assert "Test overlapping intervals" in str(exc_info.value)
 
 
@@ -146,7 +146,7 @@ def test_error_message_with_special_characters():
 
 def test_point_error_with_none():
     """Test point_error with None value."""
-    error = point_error('+', None)
+    error = point_error("+", None)
     assert isinstance(error, TypeError)
     assert "Point" in str(error)
     assert "NoneType" in str(error)
@@ -154,7 +154,7 @@ def test_point_error_with_none():
 
 def test_continuous_interval_error_with_none():
     """Test continuous_interval_error with None value."""
-    error = continuous_interval_error('<=', None)
+    error = continuous_interval_error("<=", None)
     assert isinstance(error, TypeError)
     assert "ContinuousInterval" in str(error)
     assert "NoneType" in str(error)

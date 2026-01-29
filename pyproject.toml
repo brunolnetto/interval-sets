@@ -63,3 +63,8 @@ omit = [
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+]

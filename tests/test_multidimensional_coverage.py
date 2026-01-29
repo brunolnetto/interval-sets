@@ -1,7 +1,7 @@
-
 import pytest
 from src.intervals import Interval, Point
 from src.multidimensional import Box
+
 
 class TestBoxCoverage:
     """Targeted tests to fix coverage gaps in multidimensional.py."""
@@ -16,34 +16,34 @@ class TestBoxCoverage:
         # Create an empty box (one dimension empty)
         empty = Box([Interval.empty(), Interval(0, 1)])
         assert empty.is_empty()
-        
+
         # Test contains with empty box
         assert not empty.contains((0.5, 0.5))
-        
+
         # Test overlaps with empty box
         b = Box([Interval(0, 1), Interval(0, 1)])
         assert not empty.overlaps(b)
         assert not b.overlaps(empty)
-        
+
     def test_overlaps_type_error(self):
         """Cover Line 92: Check overlap with non-Box."""
         b = Box([Interval(0, 1)])
         assert not b.overlaps("not a box")
-        
+
     def test_overlaps_dimension_mismatch(self):
         """Cover Line 95: Overlaps dimension mismatch."""
         b1 = Box([Interval(0, 1)])
         b2 = Box([Interval(0, 1), Interval(0, 1)])
         with pytest.raises(ValueError, match="Cannot compare Box"):
             b1.overlaps(b2)
-            
+
     def test_intersection_dimension_mismatch(self):
         """Cover Line 108: Intersection dimension mismatch."""
         b1 = Box([Interval(0, 1)])
         b2 = Box([Interval(0, 1), Interval(0, 1)])
         with pytest.raises(ValueError, match="Dimension mismatch"):
             b1.intersection(b2)
-            
+
     def test_union_fallback(self):
         """Line 137: intersection fallback (should unlikely happen)."""
         # Hard to hit: Intersection of Convex Intervals is Convex.
@@ -55,7 +55,7 @@ class TestBoxCoverage:
         b2 = Box([Interval(0, 1), Interval(0, 1)])
         with pytest.raises(ValueError, match="Dimension mismatch"):
             b1.difference(b2)
-            
+
     def test_difference_no_overlap_check(self):
         # Line 167: overlaps check optimization
         # We implicitly hit this if we pass disjoint boxes, but we need to ensure we don't return early before the check if we enable optimization.
