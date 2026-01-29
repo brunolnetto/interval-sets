@@ -68,5 +68,15 @@ def run_demo():
     print(f"1D Set created from IntervalSet. Dimension: {timeline.dimension}")
     print(f"Total time covered: {timeline.volume()}")
 
+    # 5. Advanced Query: Proximity
+    # Is any event "close" to the restricted area?
+    risky_point = (12, 12, 15) # Outside but near Zone A Late [5,10]x[5,10] at T=15
+    dist = restricted_area.distance_to_point(risky_point)
+    print(f"\nQuery: Distance from {risky_point} to restricted area?")
+    print(f"Result: {dist:.2f} units")
+    
+    if dist < 5.0:
+        print("Warning: Point is within 5 units of a restricted Spatio-Temporal zone!")
+
 if __name__ == "__main__":
     run_demo()

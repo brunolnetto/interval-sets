@@ -130,8 +130,8 @@ def main():
     print("=" * 60)
     
     # Distance from optimal to warning zones
-    cold_margin = optimal_range.start - warning_cold.end
-    hot_margin = warning_hot.start - optimal_range.end
+    cold_margin = optimal_range.distance(warning_cold)
+    hot_margin = optimal_range.distance(warning_hot)
     
     print(f"\nMargin before warning:")
     print(f"  Cold side: {cold_margin:.1f}°C")

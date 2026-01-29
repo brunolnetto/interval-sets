@@ -5,6 +5,10 @@ Practical Example: 2D Collision Detection and Navigation Space.
 This script demonstrates how to use the 'Set' and 'Box' classes to define
 complex 2D environments and calculate navigational constraints.
 """
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.intervals import Interval
 from src.multidimensional import Box, Set
 
@@ -36,27 +40,27 @@ def run_demo():
 
     # 4. Player Positioning & Collision
     # Player represented as a 2x2 box
+    player_size = Box([Interval(-1, 1), Interval(-1, 1)])
     player_pos_1 = (50, 50) # Center of the pillar
-    player_box_1 = Box([Interval(49, 51), Interval(49, 51)])
-
-    is_colliding = obstacles & player_box_1
-    if not is_colliding.is_empty():
+    
+    # Check collision by inflating obstacles by player size (Minkowski Sum)
+    # This creates the "C-Space" (Configuration Space) obstacles
+    c_obstacles = obstacles.dilate(player_size)
+    
+    if player_pos_1 in c_obstacles:
         print(f"\n[!] Collision detected at {player_pos_1}")
-        print(f"    Overlap volume: {is_colliding.volume()}")
+        print(f"    (The center of a 2x2 player is inside an inflated obstacle)")
 
     # Safe position
     player_pos_2 = (20, 20)
-    player_box_2 = Box([Interval(19, 21), Interval(19, 21)])
-    
-    # Check if completely within walkable space
-    if player_pos_2 in walkable_space:
+    if player_pos_2 in world - c_obstacles:
         print(f"\n[v] Player safe at {player_pos_2}")
 
-    # 5. Range Queries
-    # Find all obstacles in the "Top Right Quadrant" [50, 100] x [50, 100]
-    view_frustum = Box([Interval(50, 100), Interval(50, 100)])
-    visible_obstacles = obstacles & view_frustum
-    print_result("Visible Obstacles in Top-Right Quadrant (Volume)", visible_obstacles.volume())
+    # 5. Analysis
+    # Get the bounding box of all obstacles
+    bounding_box = obstacles.convex_hull()
+    print_result("Obstacles Bounding Box", bounding_box)
+    print(f"Maximum obstacle span (diameter): {obstacles.diameter():.2f}")
 
 if __name__ == "__main__":
     run_demo()

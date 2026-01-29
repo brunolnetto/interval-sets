@@ -5,6 +5,10 @@ Advanced Example: 3D Constructive Solid Geometry (CSG).
 This script demonstrates how to create complex 3D shapes using 
 Boolean operations on Boxes.
 """
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.intervals import Interval
 from src.multidimensional import Box, Set
 
