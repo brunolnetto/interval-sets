@@ -1,6 +1,6 @@
 import pytest
 import math
-from src.intervals import Interval, Set
+from src.intervals import Point, Interval, Set
 from src.errors import InvalidIntervalError, OverlappingIntervalError
 
 
@@ -525,3 +525,79 @@ class TestSetErrorCases:
         
         assert len(s) == 1  # Original unchanged
         assert len(s2) == 2  # New set has both intervals
+
+
+class TestSetCoverage:
+    """Additional tests to ensure full coverage of Set methods."""
+
+    def test_difference_result_set_coverage(self):
+        """
+        Cover branch in Set.difference where difference result is a Set
+        and loop continues.
+        """
+        # s1: [0, 10] (Split->Set), [20, 30] (No overlap->Interval), [40, 50] (No overlap->Interval)
+        # s2: [4, 6]
+        
+        s1 = Set([Interval(0, 10), Interval(20, 30), Interval(40, 50)])
+        s2 = Set([Interval(4, 6)])
+        
+        # 1. [0, 10] - [4, 6] -> Set.
+        # 2. [20, 30] - [4, 6] -> Interval. (Hit 742, loop back to handle [40, 50])
+        # 3. [40, 50] -> Interval.
+        
+        diff = s1 - s2
+        assert len(diff._intervals) == 4
+
+    def test_add_element_point_coverage(self):
+        """
+        Cover 563: internal conversion of Interval point to Point.
+        And cover 505 'else' branch in isolated_points: Point(i.start).
+        """
+        # 1. Create a point interval manually
+        deg = Interval(5, 5)
+        
+        # 2. Add to set. _add_element should convert to Point.
+        s = Set()
+        s._add_element(deg) 
+        assert isinstance(s._intervals[0], Point)
+        
+        # 3. Create a set where normalization produces an Interval point (not Point)
+        # Point(5) U Point(5) -> Interval(5, 5) via union
+        s2 = Set([Point(5), Point(5)])
+        assert not isinstance(s2._intervals[0], Point)
+        assert s2._intervals[0].is_point()
+        
+        # 4. Access isolated_points.
+        points = s2.isolated_points
+        assert len(points) == 1
+        assert isinstance(points[0], Point)
+        
+        # 5. Access continuous_intervals to cover case of excluded point
+        assert len(s2.continuous_intervals) == 0
+
+    def test_xor_coverage_branches(self):
+        """
+        Cover the Interval check branches in XOR.
+        """
+        # Case 2: left=Set, right=Interval.
+        s_left = Set([Interval(0, 10), Interval(20, 30)])
+        s_right = Set([Interval(100, 105)]) 
+        res = s_left ^ s_right
+        assert isinstance(res, Set)
+        assert len(res._intervals) == 3
+        
+        # Case 3: left=Interval, right=Set.
+        res2 = s_right ^ s_left
+        assert isinstance(res2, Set)
+        assert len(res2._intervals) == 3
+
+    def test_continuous_intervals_coverage(self):
+        """
+        Cover result.append(i) in continuous_intervals property.
+        We need a set with non-point intervals.
+        """
+        s = Set([Interval(0, 5), Interval(10, 15)])
+        intervals = s.continuous_intervals
+        assert len(intervals) == 2
+        assert intervals[0] == Interval(0, 5)
+        assert intervals[1] == Interval(10, 15)

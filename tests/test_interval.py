@@ -1,6 +1,6 @@
 import pytest
 import math
-from src.intervals import Interval, Set
+from src.intervals import Point, Interval, Set
 from src.errors import InvalidIntervalError
 
 
@@ -290,7 +290,7 @@ class TestIntervalStringRepresentation:
         assert repr(right_open) == "[0.0, 10.0)"
         
         point = Interval.point(5)
-        assert repr(point) == "[5.0, 5.0]"
+        assert repr(point) == "Point(5.0)"
         
         empty = Interval.empty()
         assert repr(empty) == "∅"
@@ -434,3 +434,39 @@ class TestIntervalEdgeCases:
         # Test - operator (difference)
         difference = a - b
         assert isinstance(difference, (Interval, Set))
+
+    def test_intersection_edge_case_open_boundaries(self):
+        """
+        Cover logic in Interval.intersection where start == end
+        but boundaries are open, resulting in empty set instead of invalid interval.
+        """
+        # Case 1: Open boundaries -> empty set
+        i1 = Interval(0, 5, open_end=True)
+        i2 = Interval(5, 10, open_start=True)
+        intersection = i1.intersection(i2)
+        assert intersection.is_empty()
+        
+        # Case 2: Closed boundaries -> Point
+        i3 = Interval(0, 5)
+        i4 = Interval(5, 10)
+        intersection_point = i3.intersection(i4)
+        assert isinstance(intersection_point, Point)
+        assert intersection_point.value == 5
+
+    def test_union_branch_start_conditions(self):
+        """Cover union branching where start conditions vary."""
+        # 1. start == self.start (True)
+        # i1 wins start.
+        i1 = Interval(0, 10)
+        i2 = Interval(5, 10) # start=0. 0==0.
+        i1.union(i2)
+        
+        # 2. start != self.start (False) -> start == other.start (True)
+        i3 = Interval(5, 10)
+        i4 = Interval(0, 10) # start=0. 0!=5. 0==0.
+        i3.union(i4)
+        
+        # 3. start == self.start AND start == other.start
+        i5 = Interval(0, 10)
+        i6 = Interval(0, 5)
+        i5.union(i6)

@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .intervals import Interval
+    from .intervals import Interval  # pragma: no cover
 
 
 def interval_values(interval: 'Interval') -> tuple:

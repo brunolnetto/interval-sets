@@ -1,419 +1,172 @@
-# Interval Arithmetic Library
+# Interval Sets Library
 
-[![Tests](https://github.com/yourusername/interval-sets/workflows/Tests/badge.svg)](https://github.com/yourusername/interval-arithmetic/actions)
-[![codecov](https://codecov.io/gh/yourusername/interval-sets/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/interval-arithmetic)
-[![PyPI version](https://badge.fury.io/py/interval-sets.svg)](https://badge.fury.io/py/interval-arithmetic)
-[![Python Versions](https://img.shields.io/pypi/pyversions/interval-sets.svg)](https://pypi.org/project/interval-arithmetic/)
+[![Tests](https://github.com/yourusername/interval-sets/workflows/Tests/badge.svg)](https://github.com/yourusername/interval-sets/actions)
+[![codecov](https://codecov.io/gh/yourusername/interval-sets/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/interval-sets)
+[![PyPI version](https://badge.fury.io/py/interval-sets.svg)](https://badge.fury.io/py/interval-sets)
+[![Python Versions](https://img.shields.io/pypi/pyversions/interval-sets.svg)](https://pypi.org/project/interval-sets/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A Python library for working with intervals and points on the real number line. Supports continuous intervals with open/closed boundaries, interval arithmetic, set operations, and collections of disjoint intervals.
+A Python library for performing **set operations** on intervals and points on the real number line. It supports continuous intervals with configurable open/closed boundaries and handles collections of disjoint intervals (sets) with automatic merging.
+
+> **Note:** This library focuses on *set-theoretic* operations (Union, Intersection, Difference) on intervals. It is not designed for strict *interval arithmetic* used for error bounding (e.g., `[a,b] + [c,d]`).
 
 ## Features
 
-- 🎯 **Points**: Immutable points with arithmetic and comparison operations
-- 📏 **Continuous Intervals**: Intervals with configurable open/closed boundaries
-- 🔢 **Set Operations**: Union, intersection, difference, and complement
-- 📦 **Disjoint Intervals**: Collections of non-overlapping intervals with automatic merging
-- 🔒 **Type Safe**: Comprehensive type hints and runtime type checking
-- ✅ **Well Tested**: 95%+ test coverage with 70+ test cases
-- 🐍 **Pythonic**: Full support for `in`, `hash()`, iteration, and comparison operators
+- 📏 **Continuous Intervals**: Immutable intervals with fully configurable open/closed boundaries `(a, b)`, `[a, b]`, `[a, b)`, `(a, b]`.
+- 📦 **Interval Sets**: The `Set` class represents a collection of disjoint intervals, automatically merging overlapping or adjacent intervals.
+- 🔢 **Set Operations**: Full support for Union (`|`), Intersection (`&`), Difference (`-`), and Symmetric Difference (`^`).
+- 🎯 **Points**: Support for discrete points (degenerate intervals) and operations mixing points and intervals.
+- 🔒 **Type Safe**: Comprehensive type hints and runtime validation.
+- 🐍 **Pythonic**: Supports standard operators, hashing, iteration, and membership testing (`in`).
 
 ## Installation
 
 ```bash
-pip install interval-arithmetic  # Coming soon to PyPI
-```
-
-Or install from source:
-
-```bash
-git clone https://github.com/yourusername/interval-arithmetic.git
-cd interval-arithmetic
-pip install -e .
+pip install interval-sets
 ```
 
 ## Quick Start
 
-### Working with Points
+### Working with Intervals
+
+The `Interval` class represents a single continuous range on the real number line.
 
 ```python
-from src.intervals import Point
+from src.intervals import Interval
 
-# Create points
-p1 = Point(5)
-p2 = Point(3)
+# Create intervals
+closed = Interval(0, 10)                    # [0, 10]
+open_int = Interval(0, 10, open_start=True, open_end=True)  # (0, 10)
+half_open = Interval(0, 10, open_start=False, open_end=True) # [0, 10)
 
-# Arithmetic operations
-p3 = p1 + p2  # Point(8)
-p4 = p1 - p2  # Point(2)
-
-# Comparisons
-p1 > p2  # True
-p1 == Point(5)  # True
-
-# Points are hashable
-point_set = {p1, p2, p3}
-point_dict = {p1: "first", p2: "second"}
-```
-
-### Working with Continuous Intervals
-
-```python
-from src.intervals import ContinuousInterval, Point
-
-# Create intervals with different boundary types
-closed = ContinuousInterval(0, 10)                    # [0, 10]
-open = ContinuousInterval(0, 10, True, True)          # (0, 10)
-half_open = ContinuousInterval(0, 10, False, True)    # [0, 10)
+# Convenient factories
+i1 = Interval.closed(0, 5)     # [0, 5]
+i2 = Interval.open(5, 10)      # (5, 10)
+p  = Interval.point(3)         # [3, 3] (Point)
 
 # Check membership
 5 in closed  # True
-0 in open    # False (open boundary)
-Point(5) in closed  # True
+0 in open_int    # False (open boundary)
 
-# Get interval properties
+# Interval properties
 closed.length()  # 10.0
 closed.is_empty()  # False
-
-# Set operations
-i1 = ContinuousInterval(0, 10)
-i2 = ContinuousInterval(5, 15)
-
-intersection = i1.intersection(i2)  # [5, 10]
-union = i1.union(i2)                # [0, 15]
-difference = i1.difference(i2)      # [[0, 5]]
-
-# Using operators
-i1 + i2  # [0, 15] (if overlapping/adjacent)
-i1 - i2  # [[0, 5]] (set difference)
-
-# Containment checks
-i1.contains(Point(5))  # True
-i1.contains(ContinuousInterval(3, 7))  # True
-i1.contains_value(5)  # True
 ```
 
-### Interval Notation
+### Set Operations on Intervals
 
-The library supports mathematical interval notation:
-
-- `[a, b]` - Closed interval: includes both endpoints
-- `(a, b)` - Open interval: excludes both endpoints  
-- `[a, b)` - Half-open: includes `a`, excludes `b`
-- `(a, b]` - Half-open: excludes `a`, includes `b`
+You can perform standard set operations on intervals. Operations that result in multiple disjoint intervals will return a `Set` object.
 
 ```python
-# Creating intervals with different notations
-closed = ContinuousInterval(0, 10, False, False)  # [0, 10]
-open = ContinuousInterval(0, 10, True, True)      # (0, 10)
-half_open = ContinuousInterval(0, 10, False, True) # [0, 10)
+i1 = Interval(0, 10)
+i2 = Interval(5, 15)
+i3 = Interval(20, 25)
 
-# String representation shows notation
-print(closed)     # [0, 10]
-print(open)       # (0, 10)
-print(half_open)  # [0, 10)
+# Union
+# Returns a single Interval if they overlap/touch, or a Set if disjoint
+u1 = i1.union(i2)  # [0, 15]
+u2 = i1.union(i3)  # {[0, 10], [20, 25]} (Set object)
+
+# Intersection
+inter = i1.intersection(i2)  # [5, 10]
+
+# Difference
+diff = i1.difference(i2)      # [0, 5)
 ```
 
-### Working with Disjoint Intervals
+### Working with Sets (Disjoint Intervals)
+
+The `Set` class handles collections of intervals and ensures they remain disjoint and normalized (merged).
 
 ```python
-from src.intervals import DisjointInterval, ContinuousInterval
+from src.intervals import Set, Interval
 
-# Create a collection of intervals (automatically merges overlaps)
-di = DisjointInterval([
-    ContinuousInterval(0, 5),
-    ContinuousInterval(10, 15),
-    ContinuousInterval(3, 12)  # Overlaps with first two, will be merged
+# Create a set from a list of intervals
+# Overlapping [0, 5] and [3, 8] automatically merge to [0, 8]
+s = Set([
+    Interval(0, 5),
+    Interval(3, 8),
+    Interval(10, 15)
 ])
 
-# After merging: [[0, 15], [20, 25]] becomes [[0, 15], [20, 25]]
-len(di)  # 1 (merged into single interval [0, 15])
+print(s)  # {[0, 8], [10, 15]}
 
-# Check membership
-5 in di   # True
-12 in di  # True
-20 in di  # False
+# Set Arithmetic using Operators
+s1 = Set([Interval(0, 10)])
+s2 = Set([Interval(5, 15)])
 
-# Get specific interval containing a point
-interval = di.get_interval_containing_point(7)  # Returns [0, 15]
+# Union (|)
+print(s1 | s2)  # [0, 15]
 
-# Calculate total length
-di.total_length()  # 15.0
+# Intersection (&)
+print(s1 & s2)  # [5, 10]
 
-# Set operations
-di1 = DisjointInterval([ContinuousInterval(0, 10), ContinuousInterval(20, 30)])
-di2 = DisjointInterval([ContinuousInterval(5, 15), ContinuousInterval(25, 35)])
+# Difference (-)
+print(s1 - s2)  # [0, 5)
 
-union = di1.union(di2)           # Merges all overlaps
-intersection = di1.intersection(di2)  # [[5, 10], [25, 30]]
-difference = di1.difference(di2)      # [[0, 5], [20, 25]]
-
-# Complement
-universe = ContinuousInterval(0, 40)
-complement = di1.complement(universe)  # [[10, 20], [30, 40]]
-
-# Iteration
-for interval in di:
-    print(interval)  # Iterate over all intervals
-
-# Access by index
-first = di[0]  # Get first interval
-```
-
-## Common Use Cases
-
-### 1. Schedule Management
-
-```python
-from src.intervals import DisjointInterval, ContinuousInterval
-
-# Busy times (in hours)
-busy = DisjointInterval([
-    ContinuousInterval(9, 10),    # Meeting 9-10am
-    ContinuousInterval(11, 12),   # Meeting 11am-12pm
-    ContinuousInterval(14, 16)    # Meeting 2-4pm
-])
-
-# Work day
-work_day = ContinuousInterval(9, 17)  # 9am-5pm
-
-# Available times
-available = busy.complement(work_day)
-# Result: [[10, 11], [12, 14], [16, 17]]
-```
-
-### 2. Range Validation
-
-```python
-from src.intervals import ContinuousInterval
-
-# Valid temperature range
-valid_temp = ContinuousInterval(18, 25)  # 18-25°C
-
-# Check if temperature is in valid range
-current_temp = 22
-is_valid = current_temp in valid_temp  # True
-```
-
-### 3. Data Range Analysis
-
-```python
-from src.intervals import DisjointInterval, ContinuousInterval
-
-# Data ranges with gaps
-data_ranges = DisjointInterval([
-    ContinuousInterval(0, 100),
-    ContinuousInterval(150, 250),
-    ContinuousInterval(300, 400)
-])
-
-# Find gaps
-universe = ContinuousInterval(0, 400)
-gaps = data_ranges.complement(universe)
-# Result: [[100, 150], [250, 300]]
-
-# Total data coverage
-coverage = data_ranges.total_length()  # 250
-coverage_percent = (coverage / universe.length()) * 100  # 62.5%
-```
-
-### 4. Numerical Ranges
-
-```python
-from src.intervals import ContinuousInterval
-
-# Mathematical operations with ranges
-x_range = ContinuousInterval(-10, 10)
-y_range = ContinuousInterval(0, 20)
-
-# Check if ranges overlap
-if x_range.is_overlapping(y_range):
-    overlap = x_range.intersection(y_range)
-    print(f"Overlap: {overlap}")  # [0, 10]
+# Symmetric Difference (^)
+print(s1 ^ s2)  # {[0, 5), (10, 15]}
 ```
 
 ## API Reference
 
-### Point
+### `Interval`
 
-**Constructor**
-- `Point(value: float)` - Create a point with the given value
+Represents a continuous interval defined by `start` and `end` points and boundary openness.
 
-**Methods**
-- Arithmetic: `+`, `-`
-- Comparison: `==`, `!=`, `<`, `<=`, `>`, `>=`
-- `hash()` - Points are hashable
+**Constructor:**
+- `Interval(start, end, *, open_start=False, open_end=False)`
 
-### ContinuousInterval
+**Factory Methods:**
+- `Interval.closed(start, end)`: `[start, end]`
+- `Interval.open(start, end)`: `(start, end)`
+- `Interval.left_open(start, end)`: `(start, end]`
+- `Interval.right_open(start, end)`: `[start, end)`
+- `Interval.point(value)`: `[value, value]`
+- `Interval.empty()`: `(0, 0)`
 
-**Constructor**
-- `ContinuousInterval(start, end, is_start_open=False, is_end_open=False)`
+**Key Methods:**
+- `union(other)`: Returns `Interval` or `Set`
+- `intersection(other)`: Returns `Interval` or `Set` (empty)
+- `difference(other)`: Returns `Interval` or `Set`
+- `overlaps(other)`: Check if intervals overlap
+- `is_adjacent(other)`: Check if intervals touch but don't overlap
 
-**Class Methods**
-- `ContinuousInterval.empty()` - Create an empty interval
+### `Set`
 
-**Properties**
-- `start` - Start value
-- `end` - End value
-- `is_start_open` - Whether start boundary is open
-- `is_end_open` - Whether end boundary is open
+Represents a collection of disjoint intervals. All set operations (`union`, `intersection`, `difference`) are supported and return normalized `Set` or `Interval` objects.
 
-**Methods**
-- `length()` - Get interval length
-- `is_empty()` - Check if interval is empty
-- `contains(item)` - Check if contains a Point or ContinuousInterval
-- `contains_value(value)` - Check if contains a numeric value
-- `intersection(interval)` - Compute intersection
-- `union(interval)` - Compute union
-- `difference(interval)` - Compute set difference
-- `overlaps(interval)` - Check if intervals overlap
-- `is_overlapping(interval)` - Comprehensive overlap check
+**Constructor:**
+- `Set(elements)`: List of `Interval` objects or nested `Set`s.
 
-**Operators**
-- `in` - Membership testing: `5 in interval`
-- `+` - Add/merge intervals (if adjacent or overlapping)
-- `-` - Set difference
-- `<`, `<=`, `>`, `>=` - Interval ordering
-- `==`, `!=` - Equality comparison
-- `hash()` - Intervals are hashable
+**Key Methods:**
+- `contains(value)`: Check if a value or interval is contained in the set.
+- `measure()`: Total length of all intervals in the set.
+- `infimum() / supremum()`: Lower and upper bounds.
+- `complement(universe)`: Return the complement of the set within a given universe interval.
 
-### DisjointInterval
+### `Point`
 
-**Constructor**
-- `DisjointInterval(intervals: List[ContinuousInterval])` - Automatically merges overlaps
+A helper class (inheriting from `Interval`) representing a degenerate interval `[x, x]`.
 
-**Properties**
-- `intervals` - Get list of non-overlapping intervals (copy)
+## Mathematical Notes & Design Decisions
 
-**Methods**
-- `add_interval(interval)` - Add interval (returns new DisjointInterval)
-- `get_interval_containing_point(point)` - Find containing interval
-- `total_length()` - Sum of all interval lengths
-- `union(other)` - Union with another DisjointInterval
-- `intersection(other)` - Intersection with another DisjointInterval
-- `difference(other)` - Set difference
-- `complement(universe)` - Complement within a universe interval
-
-**Collection Interface**
-- `len(di)` - Number of intervals
-- `di[i]` - Access interval by index
-- `for interval in di:` - Iterate over intervals
-- `item in di` - Check membership (Point, float, or ContinuousInterval)
-- `bool(di)` - Check if non-empty
-
-### EmptySet
-
-Represents an empty set. Returned by operations that produce no intervals.
-
-**Methods**
-- `==` - Compare with other EmptySet or empty ContinuousInterval
-
-## Error Handling
-
-The library provides clear error messages and custom exceptions:
-
-```python
-from src.errors import InvalidIntervalError, IntervalError
-from src.intervals import ContinuousInterval, Point
-
-# Invalid interval (start > end)
-try:
-    interval = ContinuousInterval(10, 5)
-except InvalidIntervalError as e:
-    print(e)  # "Invalid interval: start (10) must be less than or equal to end (5)"
-
-# Type errors
-try:
-    p = Point(5)
-    result = p + "string"
-except TypeError as e:
-    print(e)  # "Unsupported operand type(s) for +: 'Point' and 'str'"
-```
-
-## Design Principles
-
-1. **Immutability**: All objects are immutable; operations return new instances
-2. **Type Safety**: Strong type checking with helpful error messages
-3. **Pythonic**: Follows Python conventions (operators, protocols, naming)
-4. **Explicit**: Clear distinction between open and closed boundaries
-5. **Composable**: Operations can be chained naturally
-
-## Requirements
-
-- Python 3.8+
-- No external dependencies for core functionality
-- pytest for running tests
+- **Set Theory vs Interval Arithmetic:** This library implements strict set-theoretic operations. `[1, 2] + [3, 4]` is treated as a Union operation (if valid in context), not numerical addition of bounds.
+- **Normalization:** The `Set` class enforces normalization. You cannot hold `{[0, 5], [2, 7]}` inside a `Set`; it will instantly become `{[0, 7]}`.
+- **Empty Set:** An empty set is represented by a `Set` with no intervals, `Set()`. `Interval.empty()` creates a special empty interval `(0, 0)` which acts as the neutral element for union.
+- **Boundaries:** We meticulously handle open vs closed boundaries (`<` vs `<=`) during merging and difference operations to ensure mathematical correctness.
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Install development dependencies
+# Install dependencies
 pip install pytest pytest-cov
 
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-
-# Run specific test file
-pytest tests/test_continuous_interval.py
+# Run tests
+pytest --cov --cov-report=term-missing tests/
 ```
-
-### Project Structure
-
-```
-interval-arithmetic/
-├── src/
-│   ├── __init__.py         # Package exports
-│   ├── intervals.py        # Core classes
-│   ├── errors.py          # Exception classes
-│   └── utils.py           # Utility functions
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py        # Test fixtures
-│   ├── test_point.py
-│   ├── test_continuous_interval.py
-│   ├── test_disjoint_interval.py
-│   └── test_utils.py
-├── README.md
-└── pyproject.toml
-```
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Changelog
-
-### Version 0.1.0 (Current)
-
-- Initial release
-- Point arithmetic and comparison
-- ContinuousInterval with open/closed boundaries
-- Set operations (union, intersection, difference)
-- DisjointInterval with automatic merging
-- Comprehensive test suite (95%+ coverage)
-
-## Credits
-
-Developed with focus on mathematical correctness and practical usability.
-
-## Support
-
-- 📖 [Documentation](https://github.com/yourusername/interval-arithmetic/wiki)
-- 🐛 [Issue Tracker](https://github.com/yourusername/interval-arithmetic/issues)
-- 💬 [Discussions](https://github.com/yourusername/interval-arithmetic/discussions)
+MIT License

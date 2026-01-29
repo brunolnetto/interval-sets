@@ -18,7 +18,8 @@ class Interval:
         >>> Interval(0, 5, open_start=True)  # (0, 5] - open start
         >>> Interval(0, 5, open_end=True)    # [0, 5) - open end  
         >>> Interval(0, 5, open_start=True, open_end=True)  # (0, 5) - open interval
-        >>> Interval.point(5)       # [5, 5] - degenerate interval (point)
+        >>> Interval(0, 5, open_start=True, open_end=True)  # (0, 5) - open interval
+        >>> Point(5)                # [5, 5] - degenerate interval (point)
     """
     
     def __init__(
@@ -77,7 +78,7 @@ class Interval:
         Returns:
             An interval [value, value]
         """
-        return cls(value, value)
+        return Point(value)
     
     @classmethod
     def empty(cls) -> 'Interval':
@@ -244,26 +245,25 @@ class Interval:
         start = max(self._start, other._start)
         end = min(self._end, other._end)
         
-        # Determine boundary conditions
-        open_start = False
-        open_end = False
-        
-        if start == self._start:
+        if start == self._start and start == other._start:
+            open_start = self._open_start or other._open_start
+        elif start == self._start:
             open_start = self._open_start
-        if start == other._start:
-            open_start = open_start or other._open_start
+        else:
+            open_start = other._open_start
             
-        if end == self._end:
+        if end == self._end and end == other._end:
+            open_end = self._open_end or other._open_end
+        elif end == self._end:
             open_end = self._open_end
-        if end == other._end:
-            open_end = open_end or other._open_end
+        else:
+            open_end = other._open_end
         
         # If intersection is a single point, return appropriately
         if start == end:
             if not open_start and not open_end:
-                return Interval.point(start)  # Return point as interval
-            else:  # pragma: no cover
-                return _create_empty_set()  # Appears unreachable: if start==end and overlaps, at least one boundary is closed
+                return Point(start)  # Return point class instance
+            return _create_empty_set()  # pragma: no cover
         
         return Interval(start, end, open_start=open_start, open_end=open_end)
     
@@ -285,19 +285,19 @@ class Interval:
         start = min(self._start, other._start)
         end = max(self._end, other._end)
         
-        # Use most inclusive boundaries
-        open_start = False
-        open_end = False
-        
-        if start == self._start:
+        if start == self._start and start == other._start:
+            open_start = self._open_start and other._open_start
+        elif start == self._start:
             open_start = self._open_start
-        if start == other._start:
-            open_start = open_start and other._open_start
+        else:
+            open_start = other._open_start
             
-        if end == self._end:
+        if end == self._end and end == other._end:
+            open_end = self._open_end and other._open_end
+        elif end == self._end:
             open_end = self._open_end
-        if end == other._end:
-            open_end = open_end and other._open_end
+        else:
+            open_end = other._open_end
         
         return Interval(start, end, open_start=open_start, open_end=open_end)
     
@@ -441,6 +441,33 @@ class Interval:
 
 
 
+class Point(Interval):
+    """
+    Represents a single point on the real number line.
+    
+    A Point is a degenerate closed interval [value, value].
+    It inherits from Interval and can be used in all set operations.
+    """
+    
+    def __init__(self, value: float):
+        """
+        Create a new point.
+        
+        Args:
+            value: The coordinate of the point.
+        """
+        # A point is a closed interval [value, value]
+        super().__init__(value, value, open_start=False, open_end=False)
+        
+    @property
+    def value(self) -> float:
+        """The value of the point."""
+        return self._start
+        
+    def __repr__(self) -> str:
+        return f"Point({self._start})"
+
+
 class Set:
     """
     Represents any set on the real number line.
@@ -472,6 +499,21 @@ class Set:
         
         # Sort and merge overlapping/adjacent intervals
         self._normalize()
+        
+    @property
+    def isolated_points(self) -> List[Point]:
+        """Get all isolated points in this set as Point objects."""
+        return [i if isinstance(i, Point) else Point(i.start) 
+                for i in self._intervals if i.is_point()]
+                
+    @property
+    def continuous_intervals(self) -> List[Interval]:
+        """Get all non-point intervals in this set."""
+        result = []
+        for i in self._intervals:
+            if not i.is_point():
+                result.append(i)
+        return result
     
     @classmethod
     def point(cls, value: float) -> 'Set':
@@ -518,10 +560,14 @@ class Set:
     def _add_element(self, element: Union[Interval, float, 'Set']) -> None:
         """Add an element to this set (before normalization)."""
         if isinstance(element, (int, float)):
-            self._intervals.append(Interval.point(element))
+            self._intervals.append(Point(element))
         elif isinstance(element, Interval):
             if not element.is_empty():
-                self._intervals.append(element)
+                if element.is_point() and not isinstance(element, Point):
+                    # Convert degenerate interval to Point
+                    self._intervals.append(Point(element.start))
+                else:
+                    self._intervals.append(element)
         elif isinstance(element, Set):
             self._intervals.extend(element._intervals)
         else:
@@ -699,7 +745,7 @@ class Set:
                 difference_result = our_interval.difference(their_interval)
                 if isinstance(difference_result, Interval):
                     new_result.append(difference_result)
-                elif isinstance(difference_result, Set):
+                else:
                     new_result.extend(difference_result._intervals)
             result_intervals = new_result
         

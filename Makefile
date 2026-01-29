@@ -62,23 +62,23 @@ clean:  ## Clean build artifacts and cache files
 	find . -type f -name "*.pyc" -delete
 
 build:  ## Build distribution packages
-	python -m build
+	uv build
 
 publish-test: clean build  ## Publish to TestPyPI
-	python -m twine upload --repository testpypi dist/*
+	uv publish --test
 
 publish: clean build  ## Publish to PyPI (production)
-	python -m twine upload dist/*
+	uv publish
 
 examples:  ## Run all example scripts
 	@echo "Running schedule management example..."
-	python examples/schedule_management.py
+	python3 examples/schedule_management.py
 	@echo ""
 	@echo "Running data range analysis example..."
-	python examples/data_range_analysis.py
+	python3 examples/date_range_analysis.py
 	@echo ""
 	@echo "Running temperature monitoring example..."
-	python examples/temperature_monitoring.py
+	python3 examples/temperature_monitoring.py
 
 ci:  ## Run all CI checks locally
 	@echo "Running CI checks locally..."
@@ -92,7 +92,7 @@ ci:  ## Run all CI checks locally
 
 init:  ## Initialize development environment
 	@echo "Initializing development environment..."
-	python -m venv venv
+	uv venv
 	@echo "Virtual environment created. Activate it with:"
 	@echo "  source venv/bin/activate  (on Unix/macOS)"
 	@echo "  venv\\Scripts\\activate  (on Windows)"
@@ -100,7 +100,7 @@ init:  ## Initialize development environment
 	@echo "Then run: make install-dev"
 
 readme:  ## Validate README
-	python -m readme_renderer README.md -o /tmp/README.html
+	python3 -m readme_renderer README.md -o /tmp/README.html
 	@echo "✅ README is valid"
 
 all: format lint type-check test  ## Run format, lint, type-check, and test
