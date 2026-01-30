@@ -1,7 +1,7 @@
 import pytest
 import math
 from src.intervals import Interval, IntervalSet
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 class TestAnalysis1D:
@@ -101,7 +101,7 @@ class TestAnalysisND:
     def test_set_analysis(self):
         b1 = Box([Interval(0, 1), Interval(0, 1)])
         b2 = Box([Interval(2, 3), Interval(4, 5)])
-        s = Set([b1, b2])
+        s = BoxSet([b1, b2])
 
         hull = s.convex_hull()
         # x range: [0, 3], y range: [0, 5]
@@ -113,16 +113,16 @@ class TestAnalysisND:
         assert s.distance_to_point([1.5, 0.5]) == 0.5  # dist to b1 (x=1)
         assert s.distance_to_point([2.5, 4.5]) == 0.0  # inside b2
 
-        empty = Set()
+        empty = BoxSet()
         assert empty.distance_to_point([0, 0]) == float("inf")
         assert empty.convex_hull().is_empty()
         assert empty.diameter() == 0.0
 
-        # Coverage for Set.convex_hull dimension logic (Line 475)
-        s_unknown = Set()
+        # Coverage for BoxSet.convex_hull dimension logic (Line 475)
+        s_unknown = BoxSet()
         assert s_unknown.convex_hull().dimension == 1
 
-        s_2d_empty = Set()
+        s_2d_empty = BoxSet()
         s_2d_empty._dimension = 2
         assert s_2d_empty.convex_hull().dimension == 2
 
@@ -146,27 +146,27 @@ class TestAnalysisND:
         assert b_closed.is_compact()
         assert not b_open.is_compact()
 
-        # Set properties
-        s = Set([b_closed])
+        # BoxSet properties
+        s = BoxSet([b_closed])
         assert s.is_closed()
         assert s.is_bounded()
         assert s.is_compact()
         assert not s.is_open()
 
-        s_open = Set([Box([Interval.open(0, 1), Interval.open(0, 1)])])
+        s_open = BoxSet([Box([Interval.open(0, 1), Interval.open(0, 1)])])
         assert s_open.is_open()
         assert not s_open.is_closed()
         assert not s_open.is_compact()
 
-        # Empty Set properties
-        empty_s = Set()
+        # Empty BoxSet properties
+        empty_s = BoxSet()
         assert not empty_s.is_open()
         assert not empty_s.is_closed()
         assert not empty_s.is_compact()
         assert empty_s.is_bounded()
 
         # Distance between sets
-        s2 = Set([Box([Interval(3, 4), Interval(0, 1)])])
+        s2 = BoxSet([Box([Interval(3, 4), Interval(0, 1)])])
         assert s.distance(s2) == 2.0  # (3-1) = 2 in x, 0 in y.
 
         # Distance to Box/Interval/IntervalSet
@@ -184,12 +184,12 @@ class TestAnalysisND:
 
         # distance with empty
         assert Box.empty(1).distance(b1) == float("inf")
-        assert Set().distance(Set()) == float("inf")
+        assert BoxSet().distance(BoxSet()) == float("inf")
 
         # is_bounded/is_compact empty
         assert Box.empty(1).is_bounded()
-        assert Set().is_bounded()
-        assert not Set().is_compact()  # it's neither open nor closed in our lib
+        assert BoxSet().is_bounded()
+        assert not BoxSet().is_compact()  # it's neither open nor closed in our lib
 
         # dimension check in distance
         with pytest.raises(ValueError):

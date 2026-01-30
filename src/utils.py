@@ -3,7 +3,18 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .intervals import Interval  # pragma: no cover
+    from .intervals import Interval
+
+
+class Config:
+    """Global configuration for the interval-sets library."""
+
+    def __init__(self) -> None:
+        self.epsilon: float = 1e-10
+        self.strict_validation: bool = True
+
+
+config = Config()
 
 
 def interval_values(interval: "Interval") -> tuple:
@@ -24,7 +35,7 @@ def interval_values(interval: "Interval") -> tuple:
     )
 
 
-def intervals_are_adjacent(interval1, interval2) -> bool:
+def intervals_are_adjacent(interval1: "Interval", interval2: "Interval") -> bool:
     """
     Check if two intervals are adjacent (touching but not overlapping).
 

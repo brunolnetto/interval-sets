@@ -1,7 +1,7 @@
 """
 Practical Example: 2D Collision Detection and Navigation Space.
 
-This script demonstrates how to use the 'Set' and 'Box' classes to define
+This script demonstrates how to use the 'BoxSet' and 'Box' classes to define
 complex 2D environments and calculate navigational constraints.
 """
 
@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.intervals import Interval
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 def print_result(msg, result):
@@ -25,7 +25,7 @@ def run_demo():
     # 1. Define the Environment (The "World")
     # A 100x100 room
     room = Box([Interval(0, 100), Interval(0, 100)])
-    world = Set([room])
+    world = BoxSet([room])
 
     # 2. Add Obstacles (Static Geometry)
     # A central pillar [40, 60] x [40, 60]
@@ -33,7 +33,7 @@ def run_demo():
     # A wall on the left
     wall = Box([Interval(0, 10), Interval(0, 80)])
 
-    obstacles = Set([pillar, wall])
+    obstacles = BoxSet([pillar, wall])
     print_result("Obstacles defined (Volume)", obstacles.volume())  # 400 + 800 = 1200
 
     # 3. Calculate "Walkable Space" (Universe minus Obstacles)

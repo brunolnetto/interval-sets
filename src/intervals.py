@@ -120,6 +120,21 @@ class Interval:
         """Create a right-open interval [start, end)."""
         return cls(start, end, open_start=False, open_end=True)
 
+    @classmethod
+    def real_line(cls) -> "Interval":
+        """The entire real line (-∞, ∞)."""
+        return cls(float("-inf"), float("inf"))
+
+    @classmethod
+    def positive_reals(cls, include_zero: bool = False) -> "Interval":
+        """The set of positive real numbers (0, ∞) or [0, ∞)."""
+        return cls(0, float("inf"), open_start=not include_zero)
+
+    @classmethod
+    def from_center_radius(cls, center: float, radius: float) -> "Interval":
+        """Create a closed interval [center - radius, center + radius]."""
+        return cls(center - radius, center + radius)
+
     # Properties
     @property
     def start(self) -> float:
@@ -437,9 +452,7 @@ class Interval:
 
         # If intersection is a single point, return appropriately
         if start == end:
-            if not open_start and not open_end:
-                return Point(start)  # Return point class instance
-            return _create_empty_set()  # pragma: no cover
+            return Point(start)
 
         return Interval(start, end, open_start=open_start, open_end=open_end)
 
@@ -487,23 +500,16 @@ class Interval:
         """
         # Import IntervalSet from below in this file
 
-        if not self.overlaps(other):
-            return self  # Return the original interval
-
         intersection = self.intersection(other)
-        if (
-            isinstance(intersection, IntervalSet) and intersection.is_empty()
-        ):  # pragma: no cover
-            return self  # No overlap, return original (defensive)
 
-        # Handle the case where intersection is an interval
-        if isinstance(intersection, Interval):
-            int_start = intersection._start
-            int_end = intersection._end
-            int_open_start = intersection._open_start
-            int_open_end = intersection._open_end
-        else:  # pragma: no cover
-            return self  # Shouldn't happen, but safety (defensive)
+        if not isinstance(intersection, Interval):
+            return self
+
+        # intersection is now guaranteed to be an Interval
+        int_start = intersection._start
+        int_end = intersection._end
+        int_open_start = intersection._open_start
+        int_open_end = intersection._open_end
 
         result_intervals = []
 
@@ -564,7 +570,9 @@ class Interval:
     def __lt__(self, other: "Interval") -> bool:
         """Check if this interval is completely to the left of another."""
         if not isinstance(other, Interval):
-            return NotImplemented
+            raise TypeError(
+                f"'<' not supported between instances of 'Interval' and '{type(other).__name__}'"
+            )
         return self._end < other._start or (
             self._end == other._start and (self._open_end or other._open_start)
         )
@@ -576,7 +584,9 @@ class Interval:
     def __gt__(self, other: "Interval") -> bool:
         """Check if this interval is completely to the right of another."""
         if not isinstance(other, Interval):
-            return NotImplemented
+            raise TypeError(
+                f"'>' not supported between instances of 'Interval' and '{type(other).__name__}'"
+            )
         return other < self
 
     def __ge__(self, other: "Interval") -> bool:
@@ -928,14 +938,7 @@ class IntervalSet:
 
         for next_interval in self._intervals[1:]:
             if current.overlaps(next_interval) or current.is_adjacent(next_interval):
-                # Merge with current
-                union_result = current.union(next_interval)
-                if isinstance(union_result, Interval):
-                    current = union_result
-                else:  # pragma: no cover
-                    # This shouldn't happen with overlapping/adjacent intervals (defensive)
-                    merged.append(current)
-                    current = next_interval
+                current = current.union(next_interval)  # type: ignore
             else:
                 # No overlap/adjacency, save current and move to next
                 merged.append(current)
@@ -1011,13 +1014,6 @@ class IntervalSet:
                 intersection = our_interval.intersection(their_interval)
                 if isinstance(intersection, Interval):
                     result_intervals.append(intersection)
-                elif (
-                    isinstance(intersection, IntervalSet)
-                    and not intersection.is_empty()
-                ):  # pragma: no cover
-                    result_intervals.extend(
-                        intersection._intervals
-                    )  # Unreachable: Interval.intersection never returns non-empty IntervalSet
 
         # Return appropriate type based on result
         filtered_intervals = [
@@ -1118,9 +1114,8 @@ class IntervalSet:
             The complement set
         """
         # Use (-inf, inf) as default universe if not specified
-        # Use (-inf, inf) as default universe if not specified
         if universe is None:
-            raise NotImplementedError("Complement requires explicit universe set")
+            universe = IntervalSet([Interval(float("-inf"), float("inf"))])
 
         return universe.difference(self)
 
@@ -1191,10 +1186,10 @@ class IntervalSet:
     def __eq__(self, other) -> bool:
         """Check equality with another set or interval."""
         if isinstance(other, Interval):
-            return self.is_interval() and self._intervals[0] == other
+            other = IntervalSet([other])
         if not isinstance(other, IntervalSet):
             return False
-        return self._intervals == other._intervals
+        return (self - other).is_empty() and (other - self).is_empty()
 
     def __le__(self, other: "IntervalSet") -> bool:
         """Check if this set is a subset of another (⊆)."""
@@ -1279,6 +1274,14 @@ class IntervalSet:
         """
         return self.measure()
 
+    def is_measurable(self) -> bool:
+        """All IntervalSets are Lebesgue measurable."""
+        return True
+
+    def lebesgue_measure(self) -> float:
+        """Alias for measure()."""
+        return self.measure()
+
     def infimum(self) -> Optional[float]:
         """Get the infimum (greatest lower bound) of this set."""
         if self.is_empty():
@@ -1290,6 +1293,10 @@ class IntervalSet:
         if self.is_empty():
             return None
         return max(interval.end for interval in self._intervals)
+
+    def essential_supremum(self) -> Optional[float]:
+        """For compatibility with measure theory."""
+        return self.supremum()
 
     def convex_hull(self) -> Interval:
         """Return the smallest convex interval containing this set."""
@@ -1471,26 +1478,16 @@ class IntervalSet:
         if other.is_empty():
             return IntervalSet()
 
-        # Intersection of erosion by each component of B
-        # Intersection of erosion by each component of B
-        current_res: Optional[Union["IntervalSet", Interval]] = None
-        for i_b in other._intervals:
+        it_other = iter(other._intervals)
+        # other is not empty, so we can get the first element
+        first_ib = next(it_other)
+        current_res: Union["IntervalSet", Interval] = self.minkowski_difference(
+            first_ib
+        )
+
+        for i_b in it_other:
             res_b = self.minkowski_difference(i_b)
-            # Intersection with current result
-            if current_res is None:
-                current_res = res_b
-            else:
-                # Note: IntervalSet & IntervalSet returns IntervalSet
-                current_res = current_res & res_b  # type: ignore
-
-            if (
-                isinstance(current_res, (Interval, IntervalSet))
-                and current_res.is_empty()
-            ):
-                break
-
-        if current_res is None:
-            return IntervalSet()
+            current_res = current_res & res_b  # type: ignore
 
         if isinstance(current_res, Interval):
             return IntervalSet([current_res])
@@ -1548,18 +1545,15 @@ class IntervalSet:
         def directed_hausdorff(source: "IntervalSet", target: "IntervalSet") -> float:
             max_dist = 0.0
             for interval in source._intervals:
-                # Check start endpoint
+                # 1. Check endpoints of the source interval
                 if interval.start == float("-inf"):
-                    # If target doesn't extend to -inf, distance is inf
                     if not any(i.start == float("-inf") for i in target._intervals):
                         return float("inf")
                     d_start = 0.0
                 else:
                     d_start = target.distance_to_point(interval.start)
 
-                # Check end endpoint
                 if interval.end == float("inf"):
-                    # If target doesn't extend to inf, distance is inf
                     if not any(i.end == float("inf") for i in target._intervals):
                         return float("inf")
                     d_end = 0.0
@@ -1567,6 +1561,18 @@ class IntervalSet:
                     d_end = target.distance_to_point(interval.end)
 
                 max_dist = max(max_dist, d_start, d_end)
+
+                # 2. Check midpoints of gaps in target that fall within this source interval
+                # These are potential local maxima for the distance function.
+                target_intervals = target._intervals
+                for i in range(len(target_intervals) - 1):
+                    gap_start = target_intervals[i].end
+                    gap_end = target_intervals[i + 1].start
+                    midpoint = (gap_start + gap_end) / 2
+
+                    if interval.start < midpoint < interval.end:
+                        # Point is within this source interval, check its distance
+                        max_dist = max(max_dist, target.distance_to_point(midpoint))
             return max_dist
 
         return max(directed_hausdorff(self, other), directed_hausdorff(other, self))

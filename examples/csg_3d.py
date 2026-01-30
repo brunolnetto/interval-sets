@@ -11,7 +11,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.intervals import Interval
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 def run_csg_demo():
@@ -19,7 +19,7 @@ def run_csg_demo():
 
     # 1. Create a large Outer Cube [0, 10]^3
     outer_cube = Box([Interval(0, 10), Interval(0, 10), Interval(0, 10)])
-    frame = Set([outer_cube])
+    frame = BoxSet([outer_cube])
     print(f"Initial Cube Volume: {frame.volume()}")  # 1000
 
     # 2. Punch a hole through the X-axis (creating a 'tube')

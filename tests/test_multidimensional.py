@@ -127,3 +127,56 @@ class TestBoxBasic:
         diff = a.difference(b)
         assert len(diff) == 1
         assert diff[0].intervals[0] == Interval(0, 5, open_end=True)
+
+    def test_coverage_gaps(self):
+        # Line 35: Empty intervals
+        with pytest.raises(ValueError, match="at least 1 dimension"):
+            Box([])
+
+        # Line 38: Non-interval elements
+        with pytest.raises(TypeError, match="must be Interval objects"):
+            Box(["not" for _ in range(1)])  # type: ignore
+
+        # Line 122: contains(point) when empty
+        empty = Box.empty(1)
+        assert not empty.contains((0.5,))
+
+        # Line 140: overlaps with non-box
+        b1 = Box([Interval(0, 1)])
+        assert not b1.overlaps("not a box")
+
+        # Line 143: overlaps dimension mismatch
+        b2 = Box([Interval(0, 1), Interval(0, 1)])
+        with pytest.raises(ValueError, match="Cannot compare Box"):
+            b1.overlaps(b2)
+
+        # Line 148: overlaps with empty
+        assert not empty.overlaps(b1)
+        assert not b1.overlaps(empty)
+
+        # Line 158: intersection dimension mismatch
+        with pytest.raises(ValueError, match="Dimension mismatch"):
+            b1.intersection(b2)
+
+        # Line 185: intersection item not Interval
+        class NotAnInterval:
+            def is_empty(self):
+                return False
+
+        class BadInterval(Interval):
+            def __init__(self):
+                self._start = 0
+                self._end = 1
+                self._open_start = False
+                self._open_end = False
+
+            def is_empty(self):
+                return False
+
+            def intersection(self, other):
+                return NotAnInterval()
+
+        b_bad = Box.empty(1)
+        b_bad._intervals = (BadInterval(),)  # type: ignore
+        res = b_bad.intersection(b1)
+        assert res.is_empty()

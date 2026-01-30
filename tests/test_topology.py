@@ -1,6 +1,6 @@
 import math
 from src.intervals import Interval, Point, IntervalSet
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 class TestTopology1D:
@@ -99,7 +99,7 @@ class TestTopologyND:
         # L-shape
         v = Box([Interval(0, 1), Interval(0, 2)])
         h = Box([Interval(0, 2), Interval(0, 1)])
-        l_shape = Set([v, h])
+        l_shape = BoxSet([v, h])
 
         # Boundary of L-shape should NOT contain the internal shared part [0,1]x[0,1]
         bound_l = l_shape.boundary()
@@ -116,7 +116,7 @@ class TestTopologyND:
         # Connected: Two touching boxes
         b1 = Box([Interval(0, 1), Interval(0, 1)])
         b2 = Box([Interval(1, 2), Interval(0, 1)])  # Side-by-side
-        s = Set([b1, b2])
+        s = BoxSet([b1, b2])
         assert s.is_connected()
         assert len(s.connected_components()) == 1
 
@@ -127,8 +127,8 @@ class TestTopologyND:
         assert len(s2.connected_components()) == 2
 
         # Empty set is connected
-        assert Set().is_connected()
-        assert Set().connected_components() == []
+        assert BoxSet().is_connected()
+        assert BoxSet().connected_components() == []
 
     def test_box_equality(self):
         """Cover Box.__eq__."""
@@ -140,7 +140,7 @@ class TestTopologyND:
         assert b1 != "not a box"
 
     def test_empty_topology(self):
-        # 1D Set
+        # 1D BoxSet
         s = IntervalSet()
         assert s.interior().is_empty()
         assert s.closure().is_empty()
@@ -158,8 +158,8 @@ class TestTopologyND:
         assert b.closure().is_empty()
         assert b.boundary().is_empty()
 
-        # N-D Set
-        ns = Set()
+        # N-D BoxSet
+        ns = BoxSet()
         assert ns.interior().is_empty()
         assert ns.closure().is_empty()
         assert ns.boundary().is_empty()

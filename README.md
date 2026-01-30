@@ -193,12 +193,35 @@ Represents a collection of disjoint intervals. All set operations (`union`, `int
 
 A helper class (inheriting from `Interval`) representing a degenerate interval `[x, x]`.
 
+## Mathematical Foundations
+
+This library implements rigorous set-theoretic operations on Borel sets in ℝⁿ represented as finite unions of hyperrectangles (Boxes).
+
+- **Intervals**: Connected subsets of ℝ. We support all four boundary types: `[a, b]`, `(a, b)`, `[a, b)`, `(a, b]`.
+- **IntervalSets**: Finite unions of disjoint intervals in ℝ.
+- **Boxes**: Cartesian products of intervals ($I_1 \times I_2 \times ... \times I_n$) representing hyperrectangles in ℝⁿ.
+- **Sets**: Finite unions of disjoint boxes in ℝⁿ. These represent general orthogonal polyhedra.
+
+### Boundary Logic
+
+The library meticulously handles boundary interactions:
+- **Intersection**: Resulting boundary is open if *either* operand's boundary is open.
+  - Example: `[0, 5] ∩ (3, 8) = (3, 5]`
+- **Union**: Resulting boundary is closed if *either* operand's boundary is closed (for touching sets).
+  - Example: `[0, 5) ∪ [5, 10] = [0, 10]`
+- **Difference**: Boundaries are "flipped" at cut points ($A \setminus B$ where $B$ is closed results in an open boundary for fragment of $A$).
+  - Example: `[0, 10] \ [3, 7] = [0, 3) ∪ (7, 10]`
+
+### Performance & Complexity
+- **1D Operations**: O(N log N) for normalization and set operations using sorting and linear sweeps.
+- **N-D Operations**: O(M * N * 2^D) for normalization and difference, where M and N are number of boxes and D is the dimension. For most practical applications where D is small (2 or 3) and boxes are sparse, this remains efficient.
+
 ## Mathematical Notes & Design Decisions
 
 - **Set Theory vs Interval Arithmetic:** This library implements strict set-theoretic operations. `[1, 2] + [3, 4]` is treated as a Union operation (if valid in context), not numerical addition of bounds.
-- **Normalization:** The `Set` class enforces normalization. You cannot hold `{[0, 5], [2, 7]}` inside a `Set`; it will instantly become `{[0, 7]}`.
-- **Empty Set:** An empty set is represented by a `Set` with no intervals, `Set()`. `Interval.empty()` creates a special empty interval `(0, 0)` which acts as the neutral element for union.
-- **Boundaries:** We meticulously handle open vs closed boundaries (`<` vs `<=`) during merging and difference operations to ensure mathematical correctness.
+- **Normalization:** The `Set` and `IntervalSet` classes enforce normalization. You cannot hold `{[0, 5], [2, 7]}` inside a `Set`; it will instantly become `{[0, 7]}`.
+- **Empty Set:** An empty set is represented by a `Set` with no boxes, or `IntervalSet()` with no intervals. `Interval.empty()` creates a special empty interval `(0, 0)` which acts as the neutral element for union.
+- **Boundaries:** We handle open vs closed boundaries (`<` vs `<=`) during merging and difference operations to ensure mathematical correctness.
 
 ## Development
 

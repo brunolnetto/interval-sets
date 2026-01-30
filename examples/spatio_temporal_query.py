@@ -1,9 +1,9 @@
 """
 Advanced Example: Spatio-Temporal Queries.
 
-This example demonstrates using a 3D 'Set' to represent spatial regions
+This example demonstrates using a 3D 'BoxSet' to represent spatial regions
 traversed over time. It shows how to query if a point-event (x, y, t)
-falls within a managed spatio-temporal 'Set'.
+falls within a managed spatio-temporal 'BoxSet'.
 """
 
 import sys
@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.intervals import Interval, Point, IntervalSet
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 def run_demo():
@@ -27,10 +27,10 @@ def run_demo():
     # Zone A: At T=[10, 20], Zone moves to [5, 10]x[5, 10]
     zone_a_late = Box([Interval(5, 10), Interval(5, 10), Interval(10, 20)])
 
-    # Create the Spatio-Temporal Set
-    restricted_area = Set([zone_a_early, zone_a_late])
+    # Create the Spatio-Temporal BoxSet
+    restricted_area = BoxSet([zone_a_early, zone_a_late])
 
-    print(f"Restricted Area defined as a 3D Set.")
+    print(f"Restricted Area defined as a 3D BoxSet.")
     print(
         f"Total Spatio-Temporal Volume: {restricted_area.volume()}"
     )  # 25*10 + 25*10 = 500
@@ -70,16 +70,16 @@ def run_demo():
     # 4. Universal Promotion Demo
     print("\n=== PROMOTION DEMO ===")
 
-    # Create a 1D Time-Only Set
+    # Create a 1D Time-Only BoxSet
     maintenance_windows = IntervalSet([Interval(25, 30), Interval(40, 45)])
 
-    # Promote it to a 1D Box Set automatically
+    # Promote it to a 1D Box BoxSet automatically
     # Note: We need to be careful with dimensions. A 3D set cannot add a 1D set.
-    # But we can create a new 1D Set container.
-    timeline = Set()
+    # But we can create a new 1D BoxSet container.
+    timeline = BoxSet()
     timeline.add(maintenance_windows)
 
-    print(f"1D Set created from IntervalSet. Dimension: {timeline.dimension}")
+    print(f"1D BoxSet created from IntervalSet. Dimension: {timeline.dimension}")
     print(f"Total time covered: {timeline.volume()}")
 
     # 5. Advanced Query: Proximity

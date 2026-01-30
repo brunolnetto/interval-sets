@@ -6,7 +6,7 @@ Supports continuous intervals with open/closed boundaries and disjoint interval 
 """
 
 from .intervals import Interval, IntervalSet
-from .multidimensional import Box, Set
+from .multidimensional import Box, BoxSet
 from .errors import (
     IntervalError,
     InvalidIntervalError,
@@ -14,13 +14,14 @@ from .errors import (
     point_error,
     continuous_interval_error,
 )
+from .utils import Config, config
 
 __all__ = [
     # Core classes
     "Interval",
     "IntervalSet",
     "Box",
-    "Set",
+    "BoxSet",
     # Exceptions
     "IntervalError",
     "InvalidIntervalError",
@@ -28,4 +29,7 @@ __all__ = [
     # Error functions
     "point_error",
     "continuous_interval_error",
+    # Configuration
+    "Config",
+    "config",
 ]

@@ -1,6 +1,8 @@
 import pytest
 from src.intervals import Point, Interval, IntervalSet
+from src.multidimensional import Box
 from src.errors import InvalidIntervalError
+from src.spatial import RTree, RTreeNode
 
 
 class TestSetCreation:
@@ -593,3 +595,118 @@ class TestSetCoverage:
         assert len(intervals) == 2
         assert intervals[0] == Interval(0, 5)
         assert intervals[1] == Interval(10, 15)
+
+    def test_extra_coverage_for_mcp(self):
+        """Address missing lines 1118, 1279, 1283, 1299, 1493, 1575."""
+        s = IntervalSet([Interval(0, 10)])
+
+        # 1118: complement(None)
+        comp = s.complement(None)
+        assert len(comp) == 2
+
+        # 1279, 1283, 1299: aliases
+        assert s.is_measurable() is True
+        assert s.lebesgue_measure() == 10.0
+        assert s.essential_supremum() == 10.0
+
+        # 1493: minkowski_difference resulting in single Interval
+        s_long = IntervalSet([Interval(0, 20)])
+        s_short = IntervalSet([Interval(1, 2)])
+        res = s_long.minkowski_difference(s_short)
+        assert len(res) == 1
+        assert res[0] == Interval(-1, 18)
+
+        # 1575: hausdorff gap midpoint
+        # A = [0, 10]
+        # B = [0, 2] | [8, 10] -> gap (2, 8), midpoint 5 is in [0, 10]
+        A = IntervalSet([Interval(0, 10)])
+        B = IntervalSet([Interval(0, 2), Interval(8, 10)])
+        dist = A.hausdorff_distance(B)
+        assert dist == 3.0
+
+    def test_minkowski_diff_return_interval_set(self):
+        # Hit Line 1493: return IntervalSet([current_res])
+        s1 = IntervalSet([Interval(0, 10)])
+        s2 = IntervalSet([Interval(1, 2)])
+        # current_res will be an Interval [-1, 8].
+        # Line 1493 converts it to IntervalSet.
+        res = s1.minkowski_difference(s2)
+        assert isinstance(res, IntervalSet)
+        assert len(res) == 1
+
+
+def test_rtree_choose_leaf_tie_break_full_coverage():
+    # Hit both branches of Line 99 in spatial.py
+    def get_mbr(item):
+        return item.mbr if hasattr(item, "mbr") else item
+
+    def expand(m1, m2):
+        if m1 is None:
+            return m2
+        return Box(
+            [
+                Interval(
+                    min(m1.intervals[0].start, m2.intervals[0].start),
+                    max(m1.intervals[0].end, m2.intervals[0].end),
+                )
+            ]
+        )
+
+    def get_vol(b):
+        return b.volume()
+
+    def overlaps(b1, b2):
+        return b1.overlaps(b2)
+
+    tree = RTree(get_mbr, expand, get_vol, overlaps, max_entries=2)
+    tree.root.is_leaf = False
+
+    c1 = RTreeNode(4, is_leaf=True)
+    c1.mbr = Box([Interval(0, 10)])
+    c1.children = [1]  # type: ignore
+
+    c2 = RTreeNode(4, is_leaf=True)
+    c2.mbr = Box([Interval(0, 10)])
+    c2.children = [1, 2, 3]  # type: ignore
+
+    # Case 1: c1 then c2. child.children < best.children is 3 < 1 (False)
+    tree.root.children = [c1, c2]  # type: ignore
+    leaf = tree._choose_leaf(tree.root, Box([Interval(2, 3)]))
+    assert leaf == c1
+
+    # Case 2: c2 then c1. child.children < best.children is 1 < 3 (True)
+    tree.root.children = [c2, c1]  # type: ignore
+    leaf = tree._choose_leaf(tree.root, Box([Interval(2, 3)]))
+    assert leaf == c1
+
+
+def test_minkowski_diff_return_interval_set_complex():
+    # Hit Line 1493 in intervals.py
+    s1 = IntervalSet([Interval(0, 20)])
+    s2 = IntervalSet([Interval(1, 2), Interval(5, 6)])
+    res = s1.minkowski_difference(s2)
+    assert isinstance(res, IntervalSet)
+    assert len(res) == 1
+    assert res[0] == Interval(-1, 14)
+
+
+def test_rtree_split_node_exit_branch():
+    # Hit Line 179->exit in spatial.py
+    def get_mbr(item):
+        return item.mbr if hasattr(item, "mbr") else item
+
+    def expand(m1, m2):
+        return m2
+
+    def get_vol(b):
+        return 0
+
+    def overlaps(b1, b2):
+        return True
+
+    tree = RTree(get_mbr, expand, get_vol, overlaps)
+
+    node = RTreeNode(2, is_leaf=True)
+    node.children = [Box([Interval(0, 1)]), Box([Interval(2, 3)]), Box([Interval(4, 5)])]  # type: ignore
+    # node is not tree.root and node.parent is None
+    tree._split_node(node)

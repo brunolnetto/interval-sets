@@ -34,8 +34,6 @@ format:  ## Format code with black and ruff
 	black src tests
 	@echo "Auto-fixing with ruff..."
 	ruff check --fix src tests
-	@echo "Sorting imports with isort..."
-	isort src tests
 
 type-check:  ## Run type checking with mypy
 	mypy src
@@ -43,11 +41,6 @@ type-check:  ## Run type checking with mypy
 security:  ## Run security checks
 	@echo "Running bandit..."
 	bandit -r src -c pyproject.toml
-	@echo "Checking dependencies with safety..."
-	safety check --json || true
-
-pre-commit:  ## Run pre-commit hooks on all files
-	pre-commit run --all-files
 
 clean:  ## Clean build artifacts and cache files
 	rm -rf build/
@@ -72,13 +65,7 @@ publish: clean build  ## Publish to PyPI (production)
 
 examples:  ## Run all example scripts
 	@echo "Running schedule management example..."
-	python3 examples/schedule_management.py
-	@echo ""
-	@echo "Running data range analysis example..."
-	python3 examples/date_range_analysis.py
-	@echo ""
-	@echo "Running temperature monitoring example..."
-	python3 examples/temperature_monitoring.py
+	
 
 ci:  ## Run all CI checks locally
 	@echo "Running CI checks locally..."

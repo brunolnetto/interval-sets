@@ -4,7 +4,7 @@ Advanced Example: Architectural & Robotic Geometry.
 This example showcases the library's premium features:
 - Minkowski Operations (Dilation & Erosion)
 - Convex Hull Calculation
-- Set Diameter & Distance Analysis
+- BoxSet Diameter & Distance Analysis
 - Topological Property Verification
 """
 
@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import math
 from src.intervals import Interval
-from src.multidimensional import Box, Set
+from src.multidimensional import Box, BoxSet
 
 
 def heading(text):
@@ -31,7 +31,7 @@ def run_demo():
     kitchen = Box([Interval(8, 12), Interval(0, 4)])
     bedroom = Box([Interval(0, 4), Interval(6, 10)])
 
-    house = Set([living_room, kitchen, bedroom])
+    house = BoxSet([living_room, kitchen, bedroom])
     print(f"House defined with {len(house.boxes)} rooms.")
     print(f"Total Floor Area: {house.volume()} m²")
     print(f"House Layout: {house}")
@@ -43,7 +43,7 @@ def run_demo():
     # Obstacles in the room (e.g., furniture)
     table = Box([Interval(2, 4), Interval(2, 3)])
     sofa = Box([Interval(5, 7), Interval(1, 2)])
-    furniture = Set([table, sofa])
+    furniture = BoxSet([table, sofa])
 
     # To find where the robot's CENTER can safely go,
     # we inflate obstacles by the robot's radius (Minkowski Sum)

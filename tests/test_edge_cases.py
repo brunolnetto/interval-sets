@@ -52,14 +52,14 @@ class TestIntervalComparisonOperators:
     def test_lt_with_non_interval(self):
         """Test less than with non-Interval type."""
         interval = Interval(0, 10)
-        result = interval.__lt__("not an interval")
-        assert result == NotImplemented
+        with pytest.raises(TypeError, match="'<' not supported"):
+            interval < "not an interval"  # type: ignore
 
     def test_gt_with_non_interval(self):
         """Test greater than with non-Interval type."""
         interval = Interval(0, 10)
-        result = interval.__gt__("not an interval")
-        assert result == NotImplemented
+        with pytest.raises(TypeError, match="'>' not supported"):
+            interval > "not an interval"  # type: ignore
 
     def test_interval_gt_operator(self):
         """Test > operator."""
@@ -213,16 +213,6 @@ class TestSetOperationReturnTypes:
         result = s1.difference(s2)
         assert isinstance(result, IntervalSet)
         assert result.is_empty()
-
-
-class TestSetComplement:
-    """Test IntervalSet.complement."""
-
-    def test_complement_without_universe(self):
-        """Test complement without explicit universe raises NotImplementedError."""
-        s = IntervalSet([Interval(0, 10)])
-        with pytest.raises(NotImplementedError, match="requires explicit universe"):
-            s.complement()
 
 
 class TestSetSymmetricDifference:
@@ -510,3 +500,8 @@ class TestInPlaceOperatorElseBranches:
         s1 -= s2
         # Line 782: else branch when result is IntervalSet
         assert isinstance(s1, IntervalSet)
+
+    def test_minkowski_difference_invalid_type(self):
+        s = IntervalSet([Interval(0, 1)])
+        with pytest.raises(TypeError, match="Minkowski difference requires"):
+            s.minkowski_difference("invalid")  # type: ignore

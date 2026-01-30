@@ -5,6 +5,7 @@ Multi-dimensional interval arithmetic (Boxes and Regions).
 from typing import Sequence, List, Union, Tuple, Optional, Iterable
 import math
 from .intervals import Interval, IntervalSet
+from .spatial import RTree
 
 
 class Box:
@@ -33,8 +34,11 @@ class Box:
         if not intervals:
             raise ValueError("Box must have at least 1 dimension")
 
+        if not all(isinstance(i, Interval) for i in intervals):
+            raise TypeError("All elements must be Interval objects")
+
         self._intervals = tuple(intervals)
-        self._dimension = len(intervals)
+        self._dimension: int = len(intervals)
 
     @property
     def dimension(self) -> int:
@@ -88,9 +92,9 @@ class Box:
         """Check if the box is compact (closed and bounded)."""
         return self.is_closed() and self.is_bounded()
 
-    def contains(self, item: Union[Sequence[float], "Box", "Set"]) -> bool:
+    def contains(self, item: Union[Sequence[float], "Box", "BoxSet"]) -> bool:
         """
-        Check if an N-dimensional point or Box/Set is contained in this box.
+        Check if an N-dimensional point or Box/BoxSet is contained in this box.
         """
         if isinstance(item, Box):
             if item.is_empty():
@@ -102,7 +106,7 @@ class Box:
                     return False
             return True
 
-        if isinstance(item, Set):
+        if isinstance(item, BoxSet):
             if item.is_empty():
                 return True
             return all(self.contains(b) for b in item.boxes)
@@ -123,7 +127,7 @@ class Box:
                 return False
         return True
 
-    def __contains__(self, item: Union[Sequence[float], "Box", "Set"]) -> bool:
+    def __contains__(self, item: Union[Sequence[float], "Box", "BoxSet"]) -> bool:
         return self.contains(item)
 
     def overlaps(self, other: "Box") -> bool:
@@ -156,9 +160,9 @@ class Box:
             )
 
         # B_new = (I1 & J1) x (I2 & J2) ...
-        # If any resulting interval I_k & J_k is convex (Interval), we assume Interval intersection returns Interval or simple Set.
+        # If any resulting interval I_k & J_k is convex (Interval), we assume Interval intersection returns Interval or simple BoxSet.
         # But Interval.intersection returns Interval or Point or empty...
-        # Wait, Interval.intersection currently returns Interval or Set (if empty).
+        # Wait, Interval.intersection currently returns Interval or BoxSet (if empty).
         # We need component intersections to be Intervals.
         # Fortunately, the intersection of two Intervals is ALWAYS a single Interval (possibly empty).
         # It is Union that creates multiple intervals.
@@ -166,11 +170,11 @@ class Box:
         new_intervals = []
         for i1, i2 in zip(self._intervals, other.intervals):
             inter = i1.intersection(i2)
-            # inter creates a Point if single point, or Interval or empty Set?
-            # Interval.intersection returns empty Set if empty...
+            # inter creates a Point if single point, or Interval or empty BoxSet?
+            # Interval.intersection returns empty BoxSet if empty...
             # We need to normalize this back to Interval to store in Box.
 
-            # If inter is a Set (likely empty set from intersection), we check is_empty
+            # If inter is a BoxSet (likely empty set from intersection), we check is_empty
             if hasattr(inter, "is_empty") and inter.is_empty():
                 new_intervals.append(Interval.empty())
             else:
@@ -200,14 +204,14 @@ class Box:
             return self
         return Box([interval.closure() for interval in self._intervals])
 
-    def boundary(self) -> "Set":
+    def boundary(self) -> "BoxSet":
         """
         Return the topological boundary of the box.
         boundary(B) = closure(B) - interior(B)
         """
         if self.is_empty():
-            return Set()
-        return Set([self.closure()]) - self.interior()
+            return BoxSet()
+        return BoxSet([self.closure()]) - self.interior()
 
     def convex_hull(self) -> "Box":
         """Return the smallest convex box containing this box."""
@@ -348,7 +352,7 @@ class Box:
         return f"Box({list(self._intervals)})"
 
     def __eq__(self, other) -> bool:
-        if hasattr(other, "boxes"):  # Set-like
+        if hasattr(other, "boxes"):  # BoxSet-like
             return other == self
         if not isinstance(other, Box):
             return False
@@ -443,7 +447,7 @@ class Box:
         return result_boxes
 
 
-class Set:
+class BoxSet:
     """
     Represents a set of disjoint N-dimensional boxes.
     This is the multi-dimensional equivalent of IntervalSet.
@@ -454,14 +458,16 @@ class Set:
     """
 
     def __init__(
-        self, boxes: Optional[Iterable[Union[Box, "Set", Interval, IntervalSet]]] = None
+        self,
+        boxes: Optional[Iterable[Union[Box, "BoxSet", Interval, IntervalSet]]] = None,
     ):
         """
-        Create a Set (collection of disjoint boxes).
+        Create a BoxSet (collection of disjoint boxes).
         The inputs will be normalized to ensure disjointness.
         """
         self._dimension: Optional[int] = None
         self._boxes: List[Box] = []
+        self._index: Optional[RTree[Box, Box]] = None
 
         if boxes:
             for box in boxes:
@@ -483,15 +489,26 @@ class Set:
         """Total volume of the region."""
         return sum(box.volume() for box in self._boxes)
 
-    def add(self, item: Union[Box, "Set", Interval, IntervalSet]) -> None:
+    def is_measurable(self) -> bool:
+        """All Sets are Lebesgue measurable."""
+        return True
+
+    def lebesgue_measure(self) -> float:
+        """Alias for volume()."""
+        return self.volume()
+
+    def add(self, item: Union[Box, "BoxSet", Interval, IntervalSet]) -> None:
         """
-        Add an item (Box, Set, Interval, or IntervalSet) to the set, maintaining disjointness.
+        Add an item (Box, BoxSet, Interval, or IntervalSet) to the set, maintaining disjointness.
 
         Promotion:
             - Interval -> Box([Interval])
             - IntervalSet -> Multiple Box([Interval])
+
+        Complexity: O(n * 2^d) where n is the number of boxes and d is dimension.
+        Each addition can fragment the incoming box into up to 2^d disjoint pieces.
         """
-        if isinstance(item, Set):
+        if isinstance(item, BoxSet):
             for b in item.boxes:
                 self.add(b)
             return
@@ -506,7 +523,7 @@ class Set:
         box = item
         if not isinstance(box, Box):
             raise TypeError(
-                f"Cannot add {type(item)} to Set. Expected Box, Set, Interval or IntervalSet."
+                f"Cannot add {type(item)} to BoxSet. Expected Box, BoxSet, Interval or IntervalSet."
             )
 
         if box.is_empty():
@@ -516,27 +533,24 @@ class Set:
             self._dimension = int(box.dimension)
         elif self._dimension != box.dimension:
             raise ValueError(
-                f"Dimension mismatch: Set({self._dimension}) vs Box({box.dimension})"
+                f"Dimension mismatch: BoxSet({self._dimension}) vs Box({box.dimension})"
             )
 
         # We want to add 'box' to our collection.
-        # But we must subtract all EXISTING boxes from 'box' to find the
-        # "fresh" parts of 'box' to add.
-        # Existing self._boxes are already disjoint among themselves.
+        # Use spatial index to find overlapping boxes if it exists.
+        search_target = self._boxes
+        if self._index:
+            search_target = self._index.search(box)
 
         fragments = [box]
 
-        for existing in self._boxes:
-            # We don't need to check all existing boxes, only those that overlap fragments.
-            # But iterating all is O(N). Spatial index would be better for distinct N.
+        for existing in search_target:
             if not fragments:
                 break
 
             new_fragments = []
             for frag in fragments:
                 if frag.overlaps(existing):
-                    # Subtract existing from this fragment
-                    # diff returns list of sub-fragments (disjoint from existing)
                     diffs = frag.difference(existing)
                     new_fragments.extend(diffs)
                 else:
@@ -544,7 +558,12 @@ class Set:
             fragments = new_fragments
 
         # Add the remaining disjoint fragments
-        self._boxes.extend(fragments)
+        for frag in fragments:
+            self._boxes.append(frag)
+            if self._index:
+                self._index.insert(frag)
+            elif len(self._boxes) > 10:  # Build index after 10 boxes
+                self._build_index()
 
     def is_bounded(self) -> bool:
         """Check if the set is bounded."""
@@ -564,38 +583,38 @@ class Set:
         """Check if the set is compact (closed and bounded)."""
         return self.is_closed() and self.is_bounded()
 
-    def distance(self, other: Union["Set", Box, Interval, IntervalSet]) -> float:
+    def distance(self, other: Union["BoxSet", Box, Interval, IntervalSet]) -> float:
         """Compute the minimum Euclidean distance between two sets."""
         if self.is_empty() or other.is_empty():
             return float("inf")
 
-        # Promote other to Set if needed
-        if not isinstance(other, Set):
-            other = Set([other])
+        # Promote other to BoxSet if needed
+        if not isinstance(other, BoxSet):
+            other = BoxSet([other])
 
         return min(b1.distance(b2) for b1 in self._boxes for b2 in other.boxes)
 
-    def interior(self) -> "Set":
+    def interior(self) -> "BoxSet":
         """
         Return the interior of the set.
         The interior of a set is the union of the interiors of its component boxes.
         """
         if self.is_empty():
             return self
-        # Create a new Set from the interiors of component boxes.
+        # Create a new BoxSet from the interiors of component boxes.
         # Since component boxes are disjoint, their interiors are also disjoint.
-        return Set([box.interior() for box in self._boxes])
+        return BoxSet([box.interior() for box in self._boxes])
 
-    def closure(self) -> "Set":
+    def closure(self) -> "BoxSet":
         """
         Return the closure of the set.
         The closure of a set is the union of the closures of its component boxes.
         """
         if self.is_empty():
             return self
-        return Set([box.closure() for box in self._boxes])
+        return BoxSet([box.closure() for box in self._boxes])
 
-    def boundary(self) -> "Set":
+    def boundary(self) -> "BoxSet":
         """
         Return the topological boundary of the set.
         boundary(A) = closure(A) - interior(A)
@@ -649,17 +668,17 @@ class Set:
             return float("inf")
         return min(b.distance_to_point(point) for b in self._boxes)
 
-    def contains(self, item: Union[Sequence[float], Box, "Set"]) -> bool:
-        """Check if point, Box, or Set is contained in this Set."""
+    def contains(self, item: Union[Sequence[float], Box, "BoxSet"]) -> bool:
+        """Check if point, Box, or BoxSet is contained in this BoxSet."""
         if isinstance(item, Box):  # Box-like
             if item.is_empty():
                 return True
-            # Box is in Set if it's contained in the UNION of component boxes.
+            # Box is in BoxSet if it's contained in the UNION of component boxes.
             if self.is_empty():
                 return item.is_empty()
-            return (Set([item]) - self).is_empty()
+            return (BoxSet([item]) - self).is_empty()
 
-        if isinstance(item, Set):  # Set-like
+        if isinstance(item, BoxSet):  # BoxSet-like
             if item.is_empty():
                 return True
             return all(self.contains(b) for b in item.boxes)
@@ -671,26 +690,65 @@ class Set:
 
         if len(point) != self._dimension:
             raise ValueError(
-                f"Point dimension {len(point)} must match Set dimension {self._dimension}"
+                f"Point dimension {len(point)} must match BoxSet dimension {self._dimension}"
             )
 
-        for box in self._boxes:
+        search_target = self._boxes
+        if self._index:
+            # Create a degenerate box for the point to search the R-tree
+            p_box = Box([Interval(p, p) for p in point])
+            search_target = self._index.search(p_box)
+
+        for box in search_target:
             if box.contains(point):
                 return True
         return False
 
-    def __contains__(self, item: Union[Sequence[float], Box, "Set"]) -> bool:
+    def _build_index(self) -> None:
+        """Construct the spatial index for the current boxes."""
+        if not self._boxes:
+            return
+
+        def get_mbr(item: Union[Box, any]) -> Box:  # type: ignore
+            if hasattr(item, "mbr") and item.mbr is not None:
+                return item.mbr  # type: ignore
+            return item  # type: ignore
+
+        def expand_mbr(m1: Optional[Box], m2: Box) -> Box:
+            if m1 is None:
+                return m2
+            intervals = []
+            for i in range(m1.dimension):
+                i1, i2 = m1.intervals[i], m2.intervals[i]
+                start = min(i1.start, i2.start)
+                end = max(i1.end, i2.end)
+                intervals.append(Interval(start, end))
+            return Box(intervals)
+
+        def get_volume(box: Box) -> float:
+            return box.volume()
+
+        def overlaps(b1: Box, b2: Box) -> bool:
+            return b1.overlaps(b2)
+
+        self._index = RTree(get_mbr, expand_mbr, get_volume, overlaps)
+        for box in self._boxes:
+            self._index.insert(box)
+
+    def __contains__(self, item: Union[Sequence[float], Box, "BoxSet"]) -> bool:
         return self.contains(item)
 
     def intersection(
-        self, other: Union[Box, "Set", "Interval", "IntervalSet"]
-    ) -> "Set":
+        self, other: Union[Box, "BoxSet", "Interval", "IntervalSet"]
+    ) -> "BoxSet":
         """
-        Compute intersection with another Set, Box, Interval, or IntervalSet.
-        Returns a new Set.
+        Compute intersection with another BoxSet, Box, Interval, or IntervalSet.
+        Returns a new BoxSet.
+
+        Complexity: O(m * n * d) where m and n are number of boxes and d is dimension.
         """
-        if not isinstance(other, Set):
-            other = Set([other])
+        if not isinstance(other, BoxSet):
+            other = BoxSet([other])
 
         if self._dimension and other.dimension and self._dimension != other.dimension:
             raise ValueError("Dimension mismatch")
@@ -713,21 +771,25 @@ class Set:
 
         # Manually create region to bypass normalization checks?
         # Or just use constructor (which attempts normalization but here inputs are already disjoint).
-        # But Set() constructor calls add() which runs difference logic.
+        # But BoxSet() constructor calls add() which runs difference logic.
         # If we pass disjoint boxes to constructor, add() loop will just verify validity (overlap check fails).
         # So it is safe but maybe O(N^2) instead of O(N)?
         # For now, safe constructor.
-        return Set(result_boxes)
+        return BoxSet(result_boxes)
 
-    def difference(self, other: Union[Box, "Set", "Interval", "IntervalSet"]) -> "Set":
+    def difference(
+        self, other: Union[Box, "BoxSet", "Interval", "IntervalSet"]
+    ) -> "BoxSet":
         """
         Compute A - B.
         A set is a collection of boxes A_i.
         A - B = Union(A_i) - Union(B_j) = Union( (A_i - Union(B_j)) )
         For each A_i, we subtract ALL B_j.
+
+        Complexity: O(m * n * 2^d) where m and n are number of boxes and d is dimension.
         """
-        if not isinstance(other, Set):
-            other = Set([other])
+        if not isinstance(other, BoxSet):
+            other = BoxSet([other])
 
         if self._dimension and other.dimension and self._dimension != other.dimension:
             raise ValueError("Dimension mismatch")
@@ -751,41 +813,43 @@ class Set:
 
             final_boxes.extend(current_fragments)
 
-        return Set(final_boxes)
+        return BoxSet(final_boxes)
 
-    def union(self, other: Union[Box, "Set", Interval, IntervalSet]) -> "Set":
+    def union(self, other: Union[Box, "BoxSet", Interval, IntervalSet]) -> "BoxSet":
         """
         Compute A | B.
-        Just create new Set with all boxes.
+        Just create new BoxSet with all boxes.
+
+        Complexity: O(m * n * 2^d) due to pairwise subtraction for normalization.
         """
         # Promotion handled by add()
-        new_set = Set(self._boxes)
+        new_set = BoxSet(self._boxes)
         new_set.add(other)
         return new_set
 
     def symmetric_difference(
-        self, other: Union[Box, "Set", Interval, IntervalSet]
-    ) -> "Set":
+        self, other: Union[Box, "BoxSet", Interval, IntervalSet]
+    ) -> "BoxSet":
         """
         Compute A ^ B = (A - B) | (B - A).
         """
-        if not isinstance(other, Set):
-            other = Set([other])
+        if not isinstance(other, BoxSet):
+            other = BoxSet([other])
 
         diff1 = self.difference(other)
         diff2 = other.difference(self)
         return diff1.union(diff2)
 
-    def __or__(self, other: Union[Box, "Set", Interval, IntervalSet]) -> "Set":
+    def __or__(self, other: Union[Box, "BoxSet", Interval, IntervalSet]) -> "BoxSet":
         return self.union(other)
 
-    def __and__(self, other: Union[Box, "Set", Interval, IntervalSet]) -> "Set":
+    def __and__(self, other: Union[Box, "BoxSet", Interval, IntervalSet]) -> "BoxSet":
         return self.intersection(other)
 
-    def __sub__(self, other: Union[Box, "Set", Interval, IntervalSet]) -> "Set":
+    def __sub__(self, other: Union[Box, "BoxSet", Interval, IntervalSet]) -> "BoxSet":
         return self.difference(other)
 
-    def __xor__(self, other: Union[Box, "Set", Interval, IntervalSet]) -> "Set":
+    def __xor__(self, other: Union[Box, "BoxSet", Interval, IntervalSet]) -> "BoxSet":
         return self.symmetric_difference(other)
 
     def is_connected(self) -> bool:
@@ -798,7 +862,7 @@ class Set:
 
         return len(self.connected_components()) == 1
 
-    def connected_components(self) -> List["Set"]:
+    def connected_components(self) -> List["BoxSet"]:
         """
         Decompose the set into its connected components.
         Boxes are considered 'connected' if their closures have a non-empty intersection.
@@ -806,7 +870,9 @@ class Set:
         if self.is_empty():
             return []
 
-        n = len(self._boxes)
+        if self._dimension is None:
+            return []
+
         n = len(self._boxes)
         adj: List[List[int]] = [[] for _ in range(n)]
 
@@ -815,7 +881,6 @@ class Set:
             for j in range(i + 1, n):
                 # Check if closures overlap in all dimensions
                 is_adj = True
-                assert self._dimension is not None
                 for k in range(self._dimension):
                     # We use Interval.closure() followed by overlaps()
                     if (
@@ -848,13 +913,13 @@ class Set:
                             visited[neighbor] = True
                             stack.append(neighbor)
 
-                components.append(Set([self._boxes[idx] for idx in comp_indices]))
+                components.append(BoxSet([self._boxes[idx] for idx in comp_indices]))
 
         return components
 
     def minkowski_sum(
-        self, other: Union["Set", Box, Interval, IntervalSet, Sequence[float], float]
-    ) -> "Set":
+        self, other: Union["BoxSet", Box, Interval, IntervalSet, Sequence[float], float]
+    ) -> "BoxSet":
         """
         Compute the Minkowski sum of this set and another (dilation).
         """
@@ -863,10 +928,10 @@ class Set:
 
         if isinstance(other, (int, float, list, tuple)):
             # Shift all boxes
-            return Set([box.minkowski_sum(other) for box in self._boxes])
+            return BoxSet([box.minkowski_sum(other) for box in self._boxes])
 
-        if not isinstance(other, Set):
-            other = Set([other])  # type: ignore
+        if not isinstance(other, BoxSet):
+            other = BoxSet([other])  # type: ignore
 
         if other.is_empty():
             return other
@@ -876,11 +941,11 @@ class Set:
         for b_a in self._boxes:
             for b_b in other.boxes:
                 results.append(b_a.minkowski_sum(b_b))
-        return Set(results)
+        return BoxSet(results)
 
     def minkowski_difference(
-        self, other: Union["Set", Box, Interval, IntervalSet]
-    ) -> "Set":
+        self, other: Union["BoxSet", Box, Interval, IntervalSet]
+    ) -> "BoxSet":
         """
         Compute the Minkowski difference (erosion).
         A - B = {x : {x} + B is a subset of A}
@@ -891,7 +956,7 @@ class Set:
         # If other is connected (Box/Interval), we erode component-wise
         if isinstance(other, (Box, Interval)):
             if other.is_empty():
-                return Set()
+                return BoxSet()
             # Box promotion if needed
             if isinstance(other, Interval):
                 other = Box([other])
@@ -901,21 +966,21 @@ class Set:
                 res = b_a.minkowski_difference(other)
                 if not res.is_empty():
                     results.append(res)
-            return Set(results)
+            return BoxSet(results)
 
         if isinstance(other, IntervalSet):
-            other = Set([other])
+            other = BoxSet([other])
 
-        if not isinstance(other, Set):
+        if not isinstance(other, BoxSet):
             raise TypeError(
-                f"Minkowski difference requires Set, Box, or Interval, got {type(other)}"
+                f"Minkowski difference requires BoxSet, Box, or Interval, got {type(other)}"
             )
 
         if other.is_empty():
-            return Set()
+            return BoxSet()
 
         # Intersection of erosions by each component box
-        current_res: "Set" = self
+        current_res: "BoxSet" = self
         for b_b in other.boxes:
             res_b = self.minkowski_difference(b_b)
             current_res = current_res & res_b  # type: ignore
@@ -924,16 +989,16 @@ class Set:
         return current_res
 
     def dilate(
-        self, other: Union["Set", Box, Interval, IntervalSet, Sequence[float], float]
-    ) -> "Set":
+        self, other: Union["BoxSet", Box, Interval, IntervalSet, Sequence[float], float]
+    ) -> "BoxSet":
         """Alias for minkowski_sum"""
         return self.minkowski_sum(other)
 
-    def erode(self, other: Union["Set", Box, Interval, IntervalSet]) -> "Set":
+    def erode(self, other: Union["BoxSet", Box, Interval, IntervalSet]) -> "BoxSet":
         """Alias for minkowski_difference"""
         return self.minkowski_difference(other)
 
-    def dilate_epsilon(self, epsilon: float) -> "Set":
+    def dilate_epsilon(self, epsilon: float) -> "BoxSet":
         """
         Shortcut for dilation by a centered box [-epsilon, epsilon]^N.
         This expands the set in all directions.
@@ -946,21 +1011,21 @@ class Set:
         return self.dilate(ebox)
 
     def __add__(
-        self, other: Union["Set", Box, Interval, IntervalSet, Sequence[float], float]
-    ) -> "Set":
+        self, other: Union["BoxSet", Box, Interval, IntervalSet, Sequence[float], float]
+    ) -> "BoxSet":
         return self.minkowski_sum(other)
 
-    def __radd__(self, other: Union[Sequence[float], float]) -> "Set":
+    def __radd__(self, other: Union[Sequence[float], float]) -> "BoxSet":
         return self.minkowski_sum(other)
 
-    def opening(self, other: Union["Set", Box, Interval, IntervalSet]) -> "Set":
+    def opening(self, other: Union["BoxSet", Box, Interval, IntervalSet]) -> "BoxSet":
         """
         Compute the morphological opening of this set by another.
         Opening(A, B) = dilation(erosion(A, B), B)
         """
         return self.erode(other).dilate(other)
 
-    def closing(self, other: Union["Set", Box, Interval, IntervalSet]) -> "Set":
+    def closing(self, other: Union["BoxSet", Box, Interval, IntervalSet]) -> "BoxSet":
         """
         Compute the morphological closing of this set by another.
         Closing(A, B) = erosion(dilation(A, B), B)
@@ -970,8 +1035,8 @@ class Set:
     def __eq__(self, other) -> bool:
         """Check equality with another set or box/interval."""
         if isinstance(other, (Box, Interval, IntervalSet)):
-            other = Set([other])
-        if not isinstance(other, Set):
+            other = BoxSet([other])
+        if not isinstance(other, BoxSet):
             return False
         if self.is_empty() and other.is_empty():
             return True
@@ -986,7 +1051,7 @@ class Set:
         return (self - other).is_empty() and (other - self).is_empty()
 
     def __repr__(self) -> str:
-        return f"Set(dim={self._dimension}, boxes={len(self._boxes)})"
+        return f"BoxSet(dim={self._dimension}, boxes={len(self._boxes)})"
 
     def __iter__(self):
         return iter(self._boxes)
