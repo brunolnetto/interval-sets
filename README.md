@@ -1,7 +1,6 @@
 # Interval Sets Library
 
-[![Tests](https://github.com/yourusername/interval-sets/workflows/Tests/badge.svg)](https://github.com/yourusername/interval-sets/actions)
-[![codecov](https://codecov.io/gh/yourusername/interval-sets/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/interval-sets)
+[![codecov](https://codecov.io/github/brunolnetto/interval-sets/graph/badge.svg?token=FNOMCRTPPM)](https://codecov.io/github/brunolnetto/interval-sets)
 [![PyPI version](https://badge.fury.io/py/interval-sets.svg)](https://badge.fury.io/py/interval-sets)
 [![Python Versions](https://img.shields.io/pypi/pyversions/interval-sets.svg)](https://pypi.org/project/interval-sets/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
